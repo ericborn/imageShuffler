@@ -4,56 +4,127 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Image Display</title>
+<style>
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
 
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+</style>
 </head>
 <body style="background-color: #263238;">
     <div class="col-md-3"></div>
     <div class="col-md-6 well">
         <div id="imageContainer" >
         </div>
+        <label class="switch">
+      <input type="checkbox" id="onOff" checked/>
+      <span class="slider round"></span>
+    </label>
     </div>
 <script>
-        // Function to fetch and refresh the image list from the server
-        function refreshImages() {
-            fetch('/get_images')  // assuming a new route is added to handle image list retrieval
-                .then(response => response.json())
-                .then(data => {
-                    // Create and append refreshed image elements dynamically
-                    const imageContainer = document.getElementById('imageContainer');
-                    imageContainer.innerHTML = '';  // Clear existing images
+    // Function to fetch and refresh the image list from the server
+    function refreshImages() {
+        fetch('/get_images')
+            .then(response => response.json())
+            .then(data => {
+                // Create and append refreshed image elements dynamically
+                const imageContainer = document.getElementById('imageContainer');
+                imageContainer.innerHTML = '';  // Clear existing images
 
-                    data.forEach(image => {
-                        const imgElement = document.createElement('img');
-                        imgElement.src = `{{ url_for('static', filename='') }}${image}`;
-                        imgElement.alt = 'Dynamic Image';
-                        imgElement.style = 'height: 350px; width: 350px; margin: 1px; float:left;';
-                        imageContainer.appendChild(imgElement);
-                    });
+                data.forEach(image => {
+                    const imgElement = document.createElement('img');
+                    imgElement.src = `{{ url_for('static', filename='') }}${image}`;
+                    imgElement.alt = 'Dynamic Image';
+                    imgElement.style = 'height: 360px; width: 360px; margin: 1px; float:left;';
+                    imageContainer.appendChild(imgElement);
                 });
-        }
-        // Initial load of images
-        refreshImages(); 
-    </script>
+            });
+    }
+    // Initial load of images
+    refreshImages(); 
+</script>
 
-<script> 
-// Refresh images every 5000 milliseconds (5 seconds)
-setInterval(refreshImages, 60000); </script>
-<!--     <script>
-        // Retrieve image list from Flask
-        const imageList = {{ image_list | tojson | safe }};
-        
-        // Create and append image elements dynamically
-        const imageContainer = document.getElementById('imageContainer');
-        imageList.forEach(image => {
-            const imgElement = document.createElement('img');
-            imgElement.src = `{{ url_for('static', filename='' ) }}${image}`;
-            imgElement.alt = 'Dynamic Image';
-            imgElement.width = '325';
-            imgElement.height = '325';
-            imgElement.style = 'margin:5px; float:left;';
-            imageContainer.appendChild(imgElement);
-        });
-    </script> -->
-    <script src="static/js/script.js"></script>
+<!-- <script src="static/js/script.js"></script> -->
+
+<script>
+  let intervalID;
+  let isIntervalRunning = true;
+  startInterval();
+
+  function startInterval() {
+    intervalID = setInterval(refreshImages, 30000);
+    isIntervalRunning = true;
+  }
+
+  function stopInterval() {
+    clearInterval(intervalID);
+    isIntervalRunning = false;
+  }
+
+  function toggleInterval() {
+    if (isIntervalRunning) {
+      stopInterval();
+    } else {
+      startInterval();
+    }
+  }
+
+  document.getElementById('onOff').addEventListener('click', toggleInterval);
+</script>
 </body>
 </html>
