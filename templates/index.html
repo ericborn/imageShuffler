@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Image Display</title>
+
+</head>
+<body style="background-color: #263238;">
+    <div class="col-md-3"></div>
+    <div class="col-md-6 well">
+        <div id="imageContainer" >
+        </div>
+    </div>
+<script>
+        // Function to fetch and refresh the image list from the server
+        function refreshImages() {
+            fetch('/get_images')  // assuming a new route is added to handle image list retrieval
+                .then(response => response.json())
+                .then(data => {
+                    // Create and append refreshed image elements dynamically
+                    const imageContainer = document.getElementById('imageContainer');
+                    imageContainer.innerHTML = '';  // Clear existing images
+
+                    data.forEach(image => {
+                        const imgElement = document.createElement('img');
+                        imgElement.src = `{{ url_for('static', filename='') }}${image}`;
+                        imgElement.alt = 'Dynamic Image';
+                        imgElement.style = 'height: 350px; width: 350px; margin: 1px; float:left;';
+                        imageContainer.appendChild(imgElement);
+                    });
+                });
+        }
+        // Initial load of images
+        refreshImages(); 
+    </script>
+
+<script> 
+// Refresh images every 5000 milliseconds (5 seconds)
+setInterval(refreshImages, 60000); </script>
+<!--     <script>
+        // Retrieve image list from Flask
+        const imageList = {{ image_list | tojson | safe }};
+        
+        // Create and append image elements dynamically
+        const imageContainer = document.getElementById('imageContainer');
+        imageList.forEach(image => {
+            const imgElement = document.createElement('img');
+            imgElement.src = `{{ url_for('static', filename='' ) }}${image}`;
+            imgElement.alt = 'Dynamic Image';
+            imgElement.width = '325';
+            imgElement.height = '325';
+            imgElement.style = 'margin:5px; float:left;';
+            imageContainer.appendChild(imgElement);
+        });
+    </script> -->
+    <script src="static/js/script.js"></script>
+</body>
+</html>
