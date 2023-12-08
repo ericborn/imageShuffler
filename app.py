@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Dec  7 14:53:54 2023
+
+@author: eric
+"""
+
 import os
 import glob
 import random
@@ -6,6 +13,8 @@ from flask import Flask, render_template
 app = Flask(__name__)
 
 path = os.path.dirname(os.path.realpath(__file__))
+
+#path = 'C:\\stable-diffusion-webui-1.6.0\\outputs\\txt2img-images'
 
 # TODO
 # store previous 8 images and shuffle until those 8 do not appear in the next
@@ -16,42 +25,43 @@ path = os.path.dirname(os.path.realpath(__file__))
 # 2 lists, one used one not. on load move images into used and refresh to check for new files to put into not used. Load 8 from not used.
 # once a threshold of not used is reached, ie. less than 8 images remaining, reset the used list.
 
-
-def create_shuffle_list():
-    result_list = []
-    items_per_sublist = 8
-
-    all_images = [os.path.basename(image) for image in glob.glob(path+'\\static\\*.png')]
-
-    for image in range(24):
-        selected_items = random.sample(all_images, items_per_sublist)
-        result_list.append(selected_items)
-
-    return(result_list)
-
-
-def revise_shuffle_list(original_list):
-    if len(original_list) == 0:
-        original_list = create_shuffle_list()
-        print("revise shuffle result")
-        return(original_list)
+def refresh_list(used_list):
+    # find all images
+    all_images = glob.glob(path+'\\static\\**\*.png', recursive=True)
+   
+    # remove images already used
+    unused_images = [i for i in all_images if i not in used_list]
     
-    else:
-        original_list.pop(0)
-        print("revise shuffle original")
-        return(original_list)
+    # reset used_list if there are less than 20 unused images left
+    if len(unused_images) < 20:
+        used_list = []
+        unused_images = [i for i in all_images if i not in used_list]
+    
+    return(unused_images)
 
-image_list = create_shuffle_list()
+def use_list(input_list):
+    global used_list
+    random.shuffle(input_list)
+    used_list += input_list[0:8]
+    output_list = []
+    for image in range(8):
+        output_list.append(input_list[image][61:]) 
+    return(output_list[0:8])
+
+used_list = []
 
 @app.route('/')
 def index():
-    return render_template('index.html', image_list=image_list[0])
+    # global original_list
+    use_list(refresh_list(used_list))
+    return render_template('index.html', image_list=use_list(refresh_list(used_list))) #image_list=image_list[0])
 
 # route called from JS which shuffles
 @app.route('/get_images')
 def get_images():
-    result_list = revise_shuffle_list(image_list)
-    return (result_list[0])
+    # global original_list
+    # manage_shuffle_list()
+    return (use_list(refresh_list(used_list)))
 
 if __name__ == '__main__':
     app.run(debug=True)
