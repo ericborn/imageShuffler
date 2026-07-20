@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Dec  7 14:53:54 2023
-
 @author: eric
 """
 
@@ -15,10 +14,14 @@ from flask import Flask, render_template, jsonify, request
 app = Flask(__name__)
 
 path = os.path.dirname(os.path.realpath(__file__))
-#path = 'E:\\Images\\txt2img-images'
 
 # Database setup
 DB_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'favorites.db')
+
+# Global variables
+all_images = []
+current_index = 0
+BATCH_SIZE = 20  # Load more images at once for smooth scrolling
 
 def init_db():
     """Initialize the database if it doesn't exist"""
@@ -29,7 +32,8 @@ def init_db():
             image_id TEXT PRIMARY KEY,
             filename TEXT,
             favorited INTEGER DEFAULT 0,
-            favorited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            favorited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            times_displayed INTEGER
         )
     ''')
     conn.commit()
@@ -41,23 +45,18 @@ def toggle_favorite(image_path):
     cursor = conn.cursor()
 
     formatted_path = normalize_path(image_path)
-
-    # Extract just the filename or relative path as ID
     image_id = os.path.basename(image_path)
     
-    # Check if image exists in favorites
     cursor.execute('SELECT favorited FROM favorites WHERE image_id = ?', (image_id,))
     result = cursor.fetchone()
     
     if result:
-        # Toggle existing entry
         new_status = 0 if result[0] == 1 else 1
         cursor.execute(
             'UPDATE favorites SET favorited = ?, favorited_at = CURRENT_TIMESTAMP WHERE image_id = ?',
             (new_status, image_id)
         )
     else:
-        # Insert new entry
         new_status = 1
         cursor.execute(
             'INSERT INTO favorites (image_id, filename, favorited) VALUES (?, ?, ?)',
@@ -82,15 +81,12 @@ def is_favorited(image_path):
 
 def delete_image(image_path):
     """Delete an image from disk and remove from favorites"""
-    # Normalize the path to handle both \ and /
     abs_path = os.path.join(path, 'static', image_path)
-    abs_path = os.path.normpath(abs_path)  # Converts to OS-specific format
+    abs_path = os.path.normpath(abs_path)
 
-    # Delete from disk using send2trash
     if os.path.exists(abs_path):
         send2trash(abs_path)
 
-    # Remove from database
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     image_id = os.path.basename(image_path)
@@ -105,43 +101,38 @@ def normalize_path(file_path):
     return file_path.replace('\\', '/')
 
 def refresh_list():
-    global all_images
-
-    # find all images
-    #image_files = glob.glob(path+'\\static\\**\*.png', recursive=True)
+    """Refresh the master list of all images"""
+    global all_images, current_index
+    
     image_files = glob.glob(os.path.join(path, 'static', '**', '*.png'), recursive=True)
-
-    # Normalize all paths to use forward slashes
     image_files = [f.replace('\\', '/') for f in image_files]
     
-    # Shuffle the list
     random.shuffle(image_files)
-    
-    # Replace the global list
     all_images = image_files
+    current_index = 0
     
     return all_images
 
-
-def use_list():
-    """Get next 8 images from the shuffled list"""
-    global all_images
+def get_next_batch(batch_size=None):
+    """Get next batch of images from the shuffled list"""
+    global all_images, current_index
+    
+    if batch_size is None:
+        batch_size = BATCH_SIZE
     
     # Check if we need to refresh the list
-    if len(all_images) < 8:
+    if current_index >= len(all_images):
         refresh_list()
+        current_index = 0
     
-    # Take the top 8 images (or all if less than 8)
-    batch_size = min(8, len(all_images))
-    selected = all_images[:batch_size]
-    
-    # Remove selected images from the global list
-    all_images = all_images[batch_size:]
+    # Get the next batch
+    end_index = min(current_index + batch_size, len(all_images))
+    selected = all_images[current_index:end_index]
+    current_index = end_index
     
     # Prepare relative paths for web display
     output_list = []
     for image in selected:
-        # Get relative path from static folder
         rel_path = os.path.relpath(image, os.path.join(path, 'static'))
         output_list.append(rel_path.replace('\\', '/'))
     
@@ -159,7 +150,10 @@ def index():
 @app.route('/get_images')
 def get_images():
     """Endpoint to get next batch of images with favorite status"""
-    images = use_list()
+    start_index = request.args.get('start', 0, type=int)
+    batch_size = request.args.get('batch', BATCH_SIZE, type=int)
+    
+    images = get_next_batch(batch_size)
     
     # Get favorite status for all returned images
     conn = sqlite3.connect(DB_PATH)
@@ -176,7 +170,8 @@ def get_images():
     
     return jsonify({
         'images': images,
-        'favorites': favorites
+        'favorites': favorites,
+        'has_more': current_index < len(all_images)
     })
 
 @app.route('/toggle_favorite', methods=['POST'])
@@ -187,7 +182,6 @@ def toggle_favorite_route():
     if not image_path:
         return jsonify({'error': 'No image path provided'}), 400
     
-    # Convert relative path to absolute path
     abs_path = os.path.join(path, 'static', image_path)
     if not os.path.exists(abs_path):
         return jsonify({'error': 'Image not found'}), 404
@@ -207,7 +201,6 @@ def delete_image_route():
     if not image_path:
         return jsonify({'error': 'No image path provided'}), 400
     
-    # Convert relative path to absolute path
     abs_path = os.path.join(path, 'static', image_path)
     if not os.path.exists(abs_path):
         return jsonify({'error': 'Image not found'}), 404

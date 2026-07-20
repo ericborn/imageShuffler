@@ -5,180 +5,295 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Image Display</title>
 <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #263238;
+    overflow-y: scroll;
+    height: 100vh;
+}
+
 .switch {
-  position: relative;
-  display: inline-block;
-  top: 10px;
-  right: 15px;
-  width: 45px;
-  height: 25px;
-  float: right;
+    position: fixed;
+    top: 10px;
+    right: 15px;
+    width: 45px;
+    height: 25px;
+    z-index: 1000;
 }
 
 .switch input { 
-  opacity: 0;
-  width: 0;
-  height: 0;
+    opacity: 0;
+    width: 0;
+    height: 0;
 }
 
 .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #212C30;
-  -webkit-transition: .4s;
-  transition: .4s;
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #212C30;
+    -webkit-transition: .4s;
+    transition: .4s;
 }
 
 .slider:before {
-  position: absolute;
-  content: "";
-  height: 19px;
-  width: 19px;
-  left: 3px;
-  bottom: 3px;
-  background-color: #333B33;
-  -webkit-transition: .4s;
-  transition: .4s;
+    position: absolute;
+    content: "";
+    height: 19px;
+    width: 19px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #333B33;
+    -webkit-transition: .4s;
+    transition: .4s;
 }
 
 input:checked + .slider {
-  background-color: #505059;
+    background-color: #505059;
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #9DCFE8;
+    box-shadow: 0 0 1px #9DCFE8;
 }
 
 input:checked + .slider:before {
-  -webkit-transform: translateX(19px);
-  -ms-transform: translateX(19px);
-  transform: translateX(19px);
+    -webkit-transform: translateX(19px);
+    -ms-transform: translateX(19px);
+    transform: translateX(19px);
 }
 
-/* Rounded sliders */
 .slider.round {
-  border-radius: 25px;
+    border-radius: 25px;
 }
 
 .slider.round:before {
-  border-radius: 50%;
+    border-radius: 50%;
 }
 
-/* Image container with hover effects */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 10px;
+}
+
 .image-wrapper {
-  position: relative;
-  display: inline-block;
-  margin: 5px;
-  float: left;
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .image-wrapper img {
-  height: 355px;
-  width: 355px;
-  display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-/* Overlay for icons */
 .image-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  top: 0;
-  background: rgba(0, 0, 0, 0);
-  transition: background 0.3s ease;
-  opacity: 0;
-  pointer-events: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    background: rgba(0, 0, 0, 0);
+    transition: background 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .image-wrapper:hover .image-overlay {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.3);
-  pointer-events: auto;
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
 }
 
 .icon-button {
-  position: absolute;
-  bottom: 10px;
-  width: 50px;
-  height: 50px;
-  cursor: pointer;
-  border: none;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
-  padding: 8px;
-  transition: transform 0.2s ease;
-  pointer-events: auto;
+    position: absolute;
+    bottom: 10px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    border: none;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    padding: 8px;
+    transition: transform 0.2s ease;
+    pointer-events: auto;
 }
 
 .icon-button:hover {
-  transform: scale(1.1);
+    transform: scale(1.1);
 }
 
 .icon-button img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  pointer-events: none;
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: none;
 }
 
 .heart-icon {
-  left: 10px;
+    left: 10px;
 }
 
 .trash-icon {
-  right: 10px;
+    right: 10px;
 }
 
-/* Favorite indicator */
 .heart-icon.favorited {
-  background: rgba(255, 50, 50, 0.9);
+    background: rgba(255, 50, 50, 0.9);
+}
+
+.loading-indicator {
+    text-align: center;
+    padding: 20px;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.loading-indicator.hidden {
+    display: none;
+}
+
+.auto-scroll-status {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.7);
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 20px;
+    border-radius: 20px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.speed-control {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.speed-control input[type="range"] {
+    width: 100px;
+    height: 4px;
+    -webkit-appearance: none;
+    background: #505059;
+    border-radius: 2px;
+    outline: none;
+}
+
+.speed-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #9DCFE8;
+    cursor: pointer;
+}
+
+.speed-control input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #9DCFE8;
+    cursor: pointer;
+    border: none;
 }
 </style>
 </head>
-<body style="background-color: #263238;">
-    <div class="col-md-3"></div>
-    <div class="col-md-6 well">
-        <div id="imageContainer"></div>
+<body>
+    <div class="container">
+        <div id="imageContainer" class="image-grid"></div>
+        <div id="loadingIndicator" class="loading-indicator hidden">Loading more images...</div>
+        <div id="scrollStatus" class="auto-scroll-status">▶ Auto-scrolling</div>
+        <div class="speed-control">
+            <span>Speed:</span>
+            <input type="range" id="speedSlider" min="1" max="20" value="8">
+            <span id="speedLabel">8</span>
+        </div>
         <label class="switch">
-            <input type="checkbox" id="onOff" checked/>
+            <input type="checkbox" id="pauseToggle" checked/>
             <span class="slider round"></span>
         </label>
     </div>
+
 <script>
-
-// Track current images and their paths
 let currentImages = [];
-let intervalID;
-let isIntervalRunning = true;
+let isLoading = false;
+let hasMoreImages = true;
+let isPaused = false;
+let animationFrame;
+let scrollSpeed = 1;
+let targetScrollY = 0;
+let currentScrollY = 0;
+let userInteracting = false;
 
-// Function to fetch and refresh the image list from the server
-function refreshImages() {
+function loadImages() {
+    if (isLoading || !hasMoreImages) return;
+    
+    isLoading = true;
+    document.getElementById('loadingIndicator').classList.remove('hidden');
+    
     fetch('/get_images')
         .then(response => response.json())
         .then(data => {
-          const imageContainer = document.getElementById('imageContainer');
-          imageContainer.innerHTML = '';
-          currentImages = data.images;
-
+            if (data.images.length === 0) {
+                hasMoreImages = false;
+                document.getElementById('scrollStatus').textContent = '📷 No more images';
+                return;
+            }
+            
+            hasMoreImages = data.has_more;
+            const imageContainer = document.getElementById('imageContainer');
+            
             data.images.forEach(imagePath => {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'image-wrapper';
+                wrapper.dataset.imagePath = imagePath;
                 
-                // Create image element
                 const imgElement = document.createElement('img');
                 imgElement.src = `/static/${imagePath}`;
                 imgElement.alt = 'Dynamic Image';
+                imgElement.loading = 'lazy';
                 
-                // Create overlay for icons
                 const overlay = document.createElement('div');
                 overlay.className = 'image-overlay';
                 
-                // Heart button (favorite)
                 const heartBtn = document.createElement('button');
                 heartBtn.className = 'icon-button heart-icon';
                 if (data.favorites[imagePath]) {
@@ -190,7 +305,6 @@ function refreshImages() {
                     toggleFavorite(imagePath, heartBtn);
                 };
                 
-                // Trash button (delete)
                 const trashBtn = document.createElement('button');
                 trashBtn.className = 'icon-button trash-icon';
                 trashBtn.innerHTML = '<img src="/static/trash.png" alt="Delete">';
@@ -205,11 +319,23 @@ function refreshImages() {
                 wrapper.appendChild(overlay);
                 imageContainer.appendChild(wrapper);
             });
+            
+            currentImages.push(...data.images);
+            
+            if (!hasMoreImages) {
+                document.getElementById('scrollStatus').textContent = '📷 All images loaded';
+            }
         })
-        .catch(error => console.error('Error fetching images:', error));
+        .catch(error => {
+            console.error('Error fetching images:', error);
+            document.getElementById('scrollStatus').textContent = '❌ Error loading images';
+        })
+        .finally(() => {
+            isLoading = false;
+            document.getElementById('loadingIndicator').classList.add('hidden');
+        });
 }
 
-// Toggle favorite status
 function toggleFavorite(imagePath, buttonElement) {
     fetch('/toggle_favorite', {
         method: 'POST',
@@ -231,7 +357,6 @@ function toggleFavorite(imagePath, buttonElement) {
     .catch(error => console.error('Error toggling favorite:', error));
 }
 
-// Delete image
 function deleteImage(imagePath, wrapperElement) {
     if (!confirm('Are you sure you want to delete this image?')) {
         return;
@@ -247,9 +372,7 @@ function deleteImage(imagePath, wrapperElement) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Remove the image from the DOM
             wrapperElement.remove();
-            // Remove from currentImages array
             const index = currentImages.indexOf(imagePath);
             if (index > -1) {
                 currentImages.splice(index, 1);
@@ -259,43 +382,137 @@ function deleteImage(imagePath, wrapperElement) {
     .catch(error => console.error('Error deleting image:', error));
 }
 
-// Initial load of images
-refreshImages();
-
-function startInterval() {
-  if (intervalID) {
-      clearInterval(intervalID);
-  }
-  intervalID = setInterval(refreshImages, 30000);
-  isIntervalRunning = true;
+// Smooth scroll animation
+function smoothScroll() {
+    if (!isPaused && !userInteracting) {
+        // Get current position
+        currentScrollY = window.scrollY;
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        
+        // Check if we're near the bottom
+        if (currentScrollY + window.innerHeight >= document.documentElement.scrollHeight - (window.innerHeight * 1.5)) {
+            loadImages();
+        }
+        
+        // Calculate target position - always move forward
+        targetScrollY = currentScrollY + scrollSpeed;
+        
+        // If we've reached the bottom, wrap to top
+        if (targetScrollY >= maxScroll && maxScroll > 0) {
+            targetScrollY = 0;
+            if (!hasMoreImages) {
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+                document.getElementById('scrollStatus').textContent = '🔄 Refreshing...';
+                return;
+            }
+            document.getElementById('scrollStatus').textContent = '↻ Wrapping';
+        }
+        
+        // Apply the scroll
+        window.scrollTo({
+            top: targetScrollY,
+            behavior: 'smooth'
+        });
+        
+        // Update status
+        const progress = maxScroll > 0 ? Math.min(100, Math.round((targetScrollY / maxScroll) * 100)) : 0;
+        if (targetScrollY > 0) {
+            document.getElementById('scrollStatus').textContent = `▶ Auto-scrolling ${progress}%`;
+        }
+    }
+    
+    animationFrame = requestAnimationFrame(smoothScroll);
 }
 
-function stopInterval() {
-  if (intervalID) {
-      clearInterval(intervalID);
-      intervalID = null;
-  }
-  isIntervalRunning = false;
+function startAutoScroll() {
+    if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+    }
+    isPaused = false;
+    userInteracting = false;
+    document.getElementById('scrollStatus').textContent = '▶ Auto-scrolling';
+    document.getElementById('pauseToggle').checked = true;
+    smoothScroll();
 }
 
-function toggleInterval() {
-  if (isIntervalRunning) {
-      stopInterval();
-  } else {
-      startInterval();
-  }
+function pauseAutoScroll() {
+    isPaused = true;
+    if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+    }
+    document.getElementById('scrollStatus').textContent = '⏸ Paused';
+    document.getElementById('pauseToggle').checked = false;
 }
 
-// Initialize everything when page loads
+function togglePause() {
+    if (isPaused) {
+        startAutoScroll();
+    } else {
+        pauseAutoScroll();
+    }
+}
+
+function updateScrollSpeed(value) {
+    // Speed in pixels per frame (60fps)
+    // At 1080p, we want about 1-2 pixels per frame for smooth scrolling
+    // Speed value 8 = ~1.6 pixels per frame at 1080p
+    const baseSpeed = value // / 5; // 1-4 pixels per frame range
+    const viewportHeight = window.innerHeight;
+    const scaleFactor = viewportHeight / 1080;
+    scrollSpeed = baseSpeed * scaleFactor;
+    document.getElementById('speedLabel').textContent = value;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Initial load of images
-    refreshImages();
+    loadImages();
     
-    // Start the interval
-    startInterval();
+    const initialSpeed = document.getElementById('speedSlider').value;
+    updateScrollSpeed(parseInt(initialSpeed));
     
-    // Set up the toggle button
-    document.getElementById('onOff').addEventListener('click', toggleInterval);
+    setTimeout(() => {
+        startAutoScroll();
+    }, 1000);
+    
+    document.getElementById('pauseToggle').addEventListener('change', function() {
+        if (this.checked) {
+            startAutoScroll();
+        } else {
+            pauseAutoScroll();
+        }
+    });
+    
+    document.getElementById('speedSlider').addEventListener('input', function() {
+        updateScrollSpeed(parseInt(this.value));
+    });
+    
+    let userScrollTimeout;
+    window.addEventListener('scroll', function() {
+        if (!isPaused && document.getElementById('pauseToggle').checked) {
+            userInteracting = true;
+            clearTimeout(userScrollTimeout);
+            userScrollTimeout = setTimeout(() => {
+                userInteracting = false;
+            }, 2000);
+        }
+    });
+    
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            const currentSpeed = document.getElementById('speedSlider').value;
+            updateScrollSpeed(parseInt(currentSpeed));
+        }, 250);
+    });
+});
+
+window.addEventListener('beforeunload', function() {
+    if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+    }
 });
 </script>
 </body>
