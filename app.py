@@ -33,7 +33,7 @@ def init_db():
             filename TEXT,
             favorited INTEGER DEFAULT 0,
             favorited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            times_displayed INTEGER
+            times_displayed INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -106,9 +106,36 @@ def refresh_list():
     
     image_files = glob.glob(os.path.join(path, 'static', '**', '*.png'), recursive=True)
     image_files = [f.replace('\\', '/') for f in image_files]
+
+    # Separate images into never seen and seen
+    never_seen = []
+    seen = []
+
+    # Connect to database to get times_displayed info
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    for img_path in image_files:
+        image_id = os.path.basename(img_path)
+        cursor.execute('SELECT times_displayed FROM favorites WHERE image_id = ?', (image_id,))
+        result = cursor.fetchone()
+        
+        if result is None or result[0] == 0:
+            # Image hasn't been displayed yet or not in database
+            never_seen.append(img_path)
+        else:
+            # Image has been displayed before
+            seen.append(img_path)
     
-    random.shuffle(image_files)
-    all_images = image_files
+    conn.close()
+    
+    # Shuffle the never_seen images (they stay at the front)
+    random.shuffle(never_seen)
+    
+    # Shuffle the seen images
+    random.shuffle(seen)
+
+    all_images = never_seen + seen
     current_index = 0
     
     return all_images
@@ -130,11 +157,39 @@ def get_next_batch(batch_size=None):
     selected = all_images[current_index:end_index]
     current_index = end_index
     
-    # Prepare relative paths for web display
+    # Prepare relative paths for web display and update database
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
     output_list = []
     for image in selected:
         rel_path = os.path.relpath(image, os.path.join(path, 'static'))
-        output_list.append(rel_path.replace('\\', '/'))
+        rel_path = rel_path.replace('\\', '/')
+        output_list.append(rel_path)
+
+        # Update times_displayed in database
+        image_id = os.path.basename(image)
+        
+        # Check if image exists in database
+        cursor.execute('SELECT times_displayed FROM favorites WHERE image_id = ?', (image_id,))
+        result = cursor.fetchone()
+        
+        if result:
+            # Increment existing record
+            new_count = result[0] + 1
+            cursor.execute(
+                'UPDATE favorites SET times_displayed = ? WHERE image_id = ?',
+                (new_count, image_id)
+            )
+        else:
+            # Insert new record with times_displayed = 1
+            cursor.execute(
+                'INSERT INTO favorites (image_id, filename, times_displayed) VALUES (?, ?, 1)',
+                (image_id, normalize_path(image))
+            )
+    
+    conn.commit()
+    conn.close()
     
     return output_list
 
