@@ -752,8 +752,8 @@ class PhotoViewer(QMainWindow):
         
         # Transition settings
         self.transition_duration = 3000  # 3 seconds default
-        self.row_transition_duration = 30000  # 30 seconds default between rows
-        self.initial_delay = 30000
+        self.row_transition_duration = 300000  # 300 seconds default between rows
+        self.initial_delay = 300000
         
         # Initialize database
         init_db()
@@ -768,7 +768,6 @@ class PhotoViewer(QMainWindow):
     @pyqtSlot()
     def toggle_window_size(self):
         """Toggle between normal and shrunk window size"""
-        print("Shrink hotkey pressed")
         if not self.is_shrunk:
             self.showMinimized()
             self.is_shrunk = True
@@ -885,10 +884,12 @@ class PhotoViewer(QMainWindow):
         interval_layout.addWidget(interval_label)
         
         self.interval_slider = QSlider(Qt.Orientation.Horizontal)
-        self.interval_slider.setMinimum(5)   # 5 seconds
-        self.interval_slider.setMaximum(120)  # 120 seconds
-        self.interval_slider.setValue(30)    # Default to 30 seconds
+        self.interval_slider.setMinimum(1)   # 1 tick = 15 seconds (minimum 15 sec)
+        self.interval_slider.setMaximum(20)  # 20 ticks = 300 sec (5 minutes) (20 * 15)
+        self.interval_slider.setValue(20)    # Default to 300 seconds
         self.interval_slider.setFixedWidth(150)
+        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.interval_slider.setTickInterval(1)  # Show tick marks every 1 tick (15 seconds)
         self.interval_slider.setStyleSheet("""
             QSlider::groove:horizontal {
                 height: 4px;
@@ -909,7 +910,7 @@ class PhotoViewer(QMainWindow):
         self.interval_slider.valueChanged.connect(self.update_row_interval)
         interval_layout.addWidget(self.interval_slider)
         
-        self.interval_value_label = QLabel("30s")
+        self.interval_value_label = QLabel("300s")
         self.interval_value_label.setStyleSheet("color: #ccc; font-size: 13px; min-width: 30px;")
         interval_layout.addWidget(self.interval_value_label)
         
@@ -984,8 +985,9 @@ class PhotoViewer(QMainWindow):
         
     def update_row_interval(self, value):
         """Update the row interval duration"""
-        self.row_transition_duration = value * 1000  # Convert to milliseconds
-        self.interval_value_label.setText(f"{value}s")
+        seconds = value * 15
+        self.row_transition_duration = seconds * 1000  # Convert to milliseconds
+        self.interval_value_label.setText(f"{seconds}s")
         
         # If timer is active, restart it with new duration
         if self.row_transition_timer.isActive() and not self.is_paused:
