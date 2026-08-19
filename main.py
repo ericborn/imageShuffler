@@ -75,7 +75,7 @@ def refresh_list():
         for root, dirs, files in os.walk(images_path):
             for file in files:
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')):
-                    if file == 'heart.png' or file == 'trash.png':
+                    if file == 'heart.png' or file == 'trash.png' or file == 'like.png':
                         continue
                     full_path = os.path.join(root, file)
                     # Get relative path from Images directory
