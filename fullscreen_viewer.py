@@ -3,9 +3,9 @@ Fullscreen single image viewer with prompt word toggles
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QScrollArea, QFrame, QSizePolicy, QGridLayout
+    QScrollArea, QFrame, QSizePolicy, QGridLayout, QLayout
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
 from database import get_image_prompt, get_selected_prompt_words, toggle_prompt_word
 from image_utils import load_image_pixmap, get_images_path
@@ -136,8 +136,8 @@ class FullscreenViewer(QWidget):
         # Bottom bar for prompt words
         bottom_bar = QWidget()
         bottom_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.85);")
-        bottom_bar.setMinimumHeight(150)
-        bottom_bar.setMaximumHeight(450)
+        bottom_bar.setMinimumHeight(100)
+        bottom_bar.setMaximumHeight(300)
         
         bottom_layout = QVBoxLayout(bottom_bar)
         bottom_layout.setContentsMargins(20, 15, 20, 15)
@@ -169,52 +169,36 @@ class FullscreenViewer(QWidget):
             }
         """)
         scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Widget to hold word buttons - using GridLayout
         word_container = QWidget()
         word_container.setStyleSheet("background-color: transparent;")
-        word_layout = QGridLayout(word_container)
-        word_layout.setContentsMargins(5, 5, 5, 5)
-        word_layout.setSpacing(10)
+        word_layout = QFlowLayout(word_container, margin=5, spacing=10)
         word_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
         # Get prompt words
         prompt_words = get_image_prompt(self.image_path)
 
         if prompt_words:
-            # Calculate max buttons per row (approx 1020px width / button width)
-            # Assuming each button is roughly 100px wide with spacing
-            max_width = 1020
-            button_width = 150  # Approximate width including padding
-            spacing = 10
-            buttons_per_row = max(1, (max_width + spacing) // (button_width + spacing))
-            
-            row = 0
-            col = 0
             for word in prompt_words:
                 word_btn = PromptWordButton(word.strip(), self.image_path, self)
-                word_layout.addWidget(word_btn, row, col)
-                
-                col += 1
-                if col >= buttons_per_row:
-                    col = 0
-                    row += 1
+                # Allow button to size to its content
+                word_btn.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+                word_layout.addWidget(word_btn)
         else:
             no_prompt_label = QLabel("No prompt words available for this image")
             no_prompt_label.setStyleSheet("color: #666; font-size: 14px;")
-            word_layout.addWidget(no_prompt_label, 0, 0)
-
-        # Add stretch to push everything to top-left
-        word_layout.setRowStretch(row + 1, 1)
-        word_layout.setColumnStretch(buttons_per_row, 1)
-        
+            word_layout.addWidget(no_prompt_label)
+       
+        # Set the word container as the scroll area's widget
         scroll_area.setWidget(word_container)
+        # Allow container to determine its own width
         word_container.setMaximumWidth(1020)
-        bottom_layout.addWidget(scroll_area)
         ############
 
+        bottom_layout.addWidget(scroll_area)
         main_layout.addWidget(bottom_bar)
         
         # Enable mouse tracking for hover effects
@@ -272,3 +256,87 @@ class FullscreenViewer(QWidget):
         """Handle close event"""
         self.close_viewer()
         super().closeEvent(event)
+
+class QFlowLayout(QLayout):
+    """Flow layout that wraps items with dynamic sizing"""
+    
+    def __init__(self, parent=None, margin=0, spacing=-1):
+        super().__init__(parent)
+        self.item_list = []
+        self.setContentsMargins(margin, margin, margin, margin)
+        self.setSpacing(spacing)
+    
+    def __del__(self):
+        item = self.takeAt(0)
+        while item:
+            item = self.takeAt(0)
+    
+    def addItem(self, item):
+        self.item_list.append(item)
+    
+    def count(self):
+        return len(self.item_list)
+    
+    def itemAt(self, index):
+        if 0 <= index < len(self.item_list):
+            return self.item_list[index]
+        return None
+    
+    def takeAt(self, index):
+        if 0 <= index < len(self.item_list):
+            return self.item_list.pop(index)
+        return None
+    
+    def expandingDirections(self):
+        return Qt.Orientation.Horizontal
+    
+    def hasHeightForWidth(self):
+        return True
+    
+    def heightForWidth(self, width):
+        height = self.doLayout(QRect(0, 0, width, 0), True)
+        return height
+    
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self.doLayout(rect, False)
+    
+    def sizeHint(self):
+        return self.minimumSize()
+    
+    def minimumSize(self):
+        size = QSize()
+        for item in self.item_list:
+            size = size.expandedTo(item.minimumSize())
+        margins = self.contentsMargins()
+        size += QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
+        return size
+    
+    def doLayout(self, rect, test_only):
+        x = rect.x()
+        y = rect.y()
+        line_height = 0
+        max_width = rect.width()
+        spacing = self.spacing()
+        
+        for item in self.item_list:
+            widget = item.widget()
+            if widget:
+                # Get the widget's natural size hint
+                size_hint = widget.sizeHint()
+                next_x = x + size_hint.width() + spacing
+                
+                # Check if we need to wrap to next row
+                if next_x - spacing > rect.right() and line_height > 0:
+                    x = rect.x()
+                    y = y + line_height + spacing
+                    next_x = x + size_hint.width() + spacing
+                    line_height = 0
+                
+                if not test_only:
+                    item.setGeometry(QRect(QPoint(x, y), size_hint))
+                
+                x = next_x
+                line_height = max(line_height, size_hint.height())
+        
+        return y + line_height - rect.y()
