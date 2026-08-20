@@ -1,10 +1,9 @@
-# fullscreen_viewer.py
 """
 Fullscreen single image viewer with prompt word toggles
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QScrollArea, QFrame, QSizePolicy
+    QScrollArea, QFrame, QSizePolicy, QGridLayout
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
@@ -66,7 +65,6 @@ class FullscreenViewer(QWidget):
     """Fullscreen popup for viewing a single image with prompt words"""
     
     def __init__(self, image_path, parent=None, on_close_callback=None):
-        print("full screen viewer init called!")
         super().__init__(parent, Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
         self.image_path = image_path
         self.parent_widget = parent
@@ -133,12 +131,13 @@ class FullscreenViewer(QWidget):
         image_layout.addWidget(self.image_label)
         
         main_layout.addWidget(image_container, 1)  # Give it stretch factor
-        
+
+        ############
         # Bottom bar for prompt words
         bottom_bar = QWidget()
         bottom_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.85);")
         bottom_bar.setMinimumHeight(150)
-        bottom_bar.setMaximumHeight(300)
+        bottom_bar.setMaximumHeight(450)
         
         bottom_layout = QVBoxLayout(bottom_bar)
         bottom_layout.setContentsMargins(20, 15, 20, 15)
@@ -173,32 +172,49 @@ class FullscreenViewer(QWidget):
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
-        # Widget to hold word buttons
+        # Widget to hold word buttons - using GridLayout
         word_container = QWidget()
         word_container.setStyleSheet("background-color: transparent;")
-        word_layout = QHBoxLayout(word_container)
+        word_layout = QGridLayout(word_container)
         word_layout.setContentsMargins(5, 5, 5, 5)
         word_layout.setSpacing(10)
-        word_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        
+        word_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+
         # Get prompt words
         prompt_words = get_image_prompt(self.image_path)
-        
+
         if prompt_words:
+            # Calculate max buttons per row (approx 1020px width / button width)
+            # Assuming each button is roughly 100px wide with spacing
+            max_width = 1020
+            button_width = 150  # Approximate width including padding
+            spacing = 10
+            buttons_per_row = max(1, (max_width + spacing) // (button_width + spacing))
+            
+            row = 0
+            col = 0
             for word in prompt_words:
                 word_btn = PromptWordButton(word.strip(), self.image_path, self)
-                word_layout.addWidget(word_btn)
+                word_layout.addWidget(word_btn, row, col)
+                
+                col += 1
+                if col >= buttons_per_row:
+                    col = 0
+                    row += 1
         else:
             no_prompt_label = QLabel("No prompt words available for this image")
             no_prompt_label.setStyleSheet("color: #666; font-size: 14px;")
-            word_layout.addWidget(no_prompt_label)
-        
-        # Add stretch to push words to left
-        word_layout.addStretch()
+            word_layout.addWidget(no_prompt_label, 0, 0)
+
+        # Add stretch to push everything to top-left
+        word_layout.setRowStretch(row + 1, 1)
+        word_layout.setColumnStretch(buttons_per_row, 1)
         
         scroll_area.setWidget(word_container)
+        word_container.setMaximumWidth(1020)
         bottom_layout.addWidget(scroll_area)
-        
+        ############
+
         main_layout.addWidget(bottom_bar)
         
         # Enable mouse tracking for hover effects

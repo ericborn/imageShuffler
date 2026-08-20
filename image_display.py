@@ -253,7 +253,6 @@ class ImageDisplay(QFrame):
 
     def on_image_click(self, event):
         """Handle clicking on the image to open fullscreen viewer"""
-        print("Image was clicked!")
         # Pause the slideshow in the parent
         if self.parent():
             # Find the main window
@@ -279,7 +278,6 @@ class ImageDisplay(QFrame):
                 
     def get_main_window(self):
         """Find the main window in the widget hierarchy"""
-        print("Called get_main_window")
         parent = self.parent()
         while parent:
             if hasattr(parent, 'image_grid') and hasattr(parent, 'row_transition_timer'):
