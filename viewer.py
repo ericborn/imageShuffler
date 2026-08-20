@@ -422,3 +422,18 @@ class PhotoViewer(QMainWindow):
         if hasattr(self, 'key_binder'):
             self.key_binder.unregister_hotkey('Alt+Z')
         event.accept()
+
+    def pause_slideshow(self):
+        """Pause the slideshow for fullscreen viewing"""
+        if not self.is_paused:
+            self.toggle_pause()
+
+    def resume_after_fullscreen(self):
+        """Resume the slideshow after fullscreen viewer closes"""
+        if self.is_paused:
+            self.toggle_pause()
+        # Ensure timer is running
+        if not self.row_transition_timer.isActive() and not self.image_grid.transitioning:
+            self.row_transition_timer.start(self.row_transition_duration)
+            self.remaining_time = self.row_transition_duration
+            self.countdown_timer.start(1000)

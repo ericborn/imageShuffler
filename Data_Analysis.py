@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 from wordcloud import WordCloud
+import re
 #import numpy as np
-#import re
 
 ##########
 # Alter Table
@@ -29,14 +29,15 @@ from wordcloud import WordCloud
 conn = sqlite3.connect('favorites.db')
 cursor = conn.cursor()
 
+column_name = 'prompt_words_selected'
 # Add the new column
 try:
-    cursor.execute('ALTER TABLE favorites ADD COLUMN liked INTEGER')
+    cursor.execute(f'ALTER TABLE favorites ADD COLUMN {column_name} TEXT')
     conn.commit()
-    print("Column 'liked' added successfully!")
+    print(f"Column '{column_name}' added successfully!")
 except sqlite3.OperationalError as e:
     if "duplicate column name" in str(e):
-        print("Column 'liked' already exists")
+        print(f"Column '{column_name}' already exists")
     else:
         print(f"Error: {e}")
 
@@ -65,8 +66,7 @@ conn.close()
 conn = sqlite3.connect('favorites.db')
 cursor = conn.cursor()
 
-#cursor.execute("SELECT * FROM favorites where favorited = 0 limit 100")
-cursor.execute("SELECT * FROM favorites where favorited = 1")
+cursor.execute("SELECT * FROM favorites where favorited = 1 limit 1")
 rows = cursor.fetchall()
 image_path_list = []
 
@@ -76,6 +76,47 @@ for row in rows:
 
 # Close the connection
 conn.close()
+
+#########
+# find tags of single image from filename
+#########
+#photo_id = '13406--1897453673.png'
+
+conn = sqlite3.connect('favorites.db')
+cursor = conn.cursor()
+cursor.execute("SELECT * FROM favorites where favorited = 1 limit 1")
+photo_path = cursor.fetchone()[1]
+conn.close()
+
+# Initialize the parser manager
+parser_manager = ParserManager()
+
+# Initialize empty list to store parsed data
+parsed_data = []
+
+prompt_info = parser_manager.parse(photo_path)
+
+# to string
+prompt_string = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
+prompt_string = prompt_string + ',, ,'
+prompt_string = prompt_string.strip()
+
+while True:
+        collapsed = re.sub(r',\s*,', ',', prompt_string)
+        if collapsed == prompt_string:
+            break
+        prompt_string = collapsed
+        
+prompt_string = re.sub(r',+$', '', prompt_string)
+
+re.sub(r',\s*(?!$)', ', ', prompt_string)
+
+# not converting to list yet
+# convert to list, separate by comma
+#prompt_list = [item.strip() for item in prompt_string.split(',')]
+
+# remove empty rows
+#prompt_list = [item for item in prompt_list if item]
 
 ######
 # update column
@@ -117,6 +158,25 @@ conn.close()
 ##################
 # parse image meta data to DataFrame
 ##################
+
+generic_words = ['extreme detail', 'photorealistic', 'detailed', 
+                  'high detailed skin', 'raw photo', 'breathtaking', 
+                  'ultra high res', 'masterpiece', 'super detail', 
+                  'shallow depth of field', 'film', 'best quality', 
+                  'cinematic film still', 'realistic', 'hd', '8k uhd', 
+                  'professional', 'professional photography', 'cinemascope', 
+                  'oc rendering', 'fujifilm xt3', 'high quality', 
+                  'cinematic photo', 'highly detailed', '35mm photograph', 
+                  'cinematic', 'dslr', 'movie still', 'portrait',
+                  'hyperdetailed photography', 'cinematic lighting', 
+                  'cinematic shot', 'film still', '8k']
+
+shape_words = ['stunning woman', 'beautiful woman', 'sexy woman', 
+               'slutty woman', 'large breasts', 'large ass', 'huge breasts', 
+               'huge ass', 'large butt', 'large tits', 'huge tits',
+               'huge exposed breasts', 'huge butt', 'wide ass', 'medium ass',
+               'wide butt', 'wide hips', 'medium breasts', 'medium butt',
+               'bursting breasts']
 
 # load all favorited images
 conn = sqlite3.connect('favorites.db')
@@ -276,6 +336,8 @@ plt.show()
 # 2. PROCESS PROMPT WORDS (Helper function)
 # ============================================================================
 
+# TODO
+# this version does not have filtering to include/exclude generic/shape words
 def process_prompt_words(df, column_name, top_n=30, min_word_length=2):
     """
     Process comma-separated prompt strings, deduplicate words within each prompt,
@@ -285,24 +347,25 @@ def process_prompt_words(df, column_name, top_n=30, min_word_length=2):
     # things to exclude 
     # beret, crown, doughnut
     
-    generic_words = ['extreme detail', 'photorealistic', 'detailed', 
-                      'high detailed skin', 'raw photo', 'breathtaking', 
-                      'ultra high res', 'masterpiece', 'super detail', 
-                      'shallow depth of field', 'film', 'best quality', 
-                      'cinematic film still', 'realistic', 'hd', '8k uhd', 
-                      'professional', 'professional photography', 'cinemascope', 
-                      'oc rendering', 'fujifilm xt3', 'high quality', 
-                      'cinematic photo', 'highly detailed', '35mm photograph', 
-                      'cinematic', 'dslr', 'movie still', 'portrait',
-                      'hyperdetailed photography', 'cinematic lighting', 
-                      'cinematic shot', 'film still', '8k']
+    # added as globals above, need to make sure it works
+    # generic_words = ['extreme detail', 'photorealistic', 'detailed', 
+    #                   'high detailed skin', 'raw photo', 'breathtaking', 
+    #                   'ultra high res', 'masterpiece', 'super detail', 
+    #                   'shallow depth of field', 'film', 'best quality', 
+    #                   'cinematic film still', 'realistic', 'hd', '8k uhd', 
+    #                   'professional', 'professional photography', 'cinemascope', 
+    #                   'oc rendering', 'fujifilm xt3', 'high quality', 
+    #                   'cinematic photo', 'highly detailed', '35mm photograph', 
+    #                   'cinematic', 'dslr', 'movie still', 'portrait',
+    #                   'hyperdetailed photography', 'cinematic lighting', 
+    #                   'cinematic shot', 'film still', '8k']
     
-    shape_words = ['stunning woman', 'beautiful woman', 'sexy woman', 
-                   'slutty woman', 'large breasts', 'large ass', 'huge breasts', 
-                   'huge ass', 'large butt', 'large tits', 'huge tits',
-                   'huge exposed breasts', 'huge butt', 'wide ass', 'medium ass',
-                   'wide butt', 'wide hips', 'medium breasts', 'medium butt',
-                   'bursting breasts']
+    # shape_words = ['stunning woman', 'beautiful woman', 'sexy woman', 
+    #                'slutty woman', 'large breasts', 'large ass', 'huge breasts', 
+    #                'huge ass', 'large butt', 'large tits', 'huge tits',
+    #                'huge exposed breasts', 'huge butt', 'wide ass', 'medium ass',
+    #                'wide butt', 'wide hips', 'medium breasts', 'medium butt',
+    #                'bursting breasts']
        
     for prompt_text in df[column_name].dropna():
         if prompt_text and prompt_text != 'NO_METADATA' and not prompt_text.startswith('ERROR'):
@@ -497,24 +560,24 @@ def process_prompt_words_with_percentage(df, column_name, top_n=30, min_word_len
     all_words = []
     
     # repeated from above in the non-percent version
-    generic_words = ['extreme detail', 'photorealistic', 'detailed', 
-                      'high detailed skin', 'raw photo', 'breathtaking', 
-                      'ultra high res', 'masterpiece', 'super detail', 
-                      'shallow depth of field', 'film', 'best quality', 
-                      'cinematic film still', 'realistic', 'hd', '8k uhd', 
-                      'professional', 'professional photography', 'cinemascope', 
-                      'oc rendering', 'fujifilm xt3', 'high quality', 
-                      'cinematic photo', 'highly detailed', '35mm photograph', 
-                      'cinematic', 'dslr', 'movie still', 'portrait',
-                      'hyperdetailed photography', 'cinematic lighting', 
-                      'cinematic shot', 'film still', '8k']
+    # generic_words = ['extreme detail', 'photorealistic', 'detailed', 
+    #                   'high detailed skin', 'raw photo', 'breathtaking', 
+    #                   'ultra high res', 'masterpiece', 'super detail', 
+    #                   'shallow depth of field', 'film', 'best quality', 
+    #                   'cinematic film still', 'realistic', 'hd', '8k uhd', 
+    #                   'professional', 'professional photography', 'cinemascope', 
+    #                   'oc rendering', 'fujifilm xt3', 'high quality', 
+    #                   'cinematic photo', 'highly detailed', '35mm photograph', 
+    #                   'cinematic', 'dslr', 'movie still', 'portrait',
+    #                   'hyperdetailed photography', 'cinematic lighting', 
+    #                   'cinematic shot', 'film still', '8k']
     
-    shape_words = ['stunning woman', 'beautiful woman', 'sexy woman', 
-                    'slutty woman', 'large breasts', 'large ass', 'huge breasts', 
-                    'huge ass', 'large butt', 'large tits', 'huge tits',
-                    'huge exposed breasts', 'huge butt', 'wide ass', 'medium ass',
-                    'wide butt', 'wide hips', 'medium breasts', 'medium butt',
-                    'bursting breasts']
+    # shape_words = ['stunning woman', 'beautiful woman', 'sexy woman', 
+    #                 'slutty woman', 'large breasts', 'large ass', 'huge breasts', 
+    #                 'huge ass', 'large butt', 'large tits', 'huge tits',
+    #                 'huge exposed breasts', 'huge butt', 'wide ass', 'medium ass',
+    #                 'wide butt', 'wide hips', 'medium breasts', 'medium butt',
+    #                 'bursting breasts']
     
     for prompt_text in df[column_name].dropna():
         if prompt_text and prompt_text != 'NO_METADATA' and not str(prompt_text).startswith('ERROR'):
@@ -574,7 +637,7 @@ print("FULL PROMPT - Word Frequency with Percentages")
 print("="*80)
 
 # top 150, 2 letters or more, generic filter, shape filter
-top_full_prompt_data = process_prompt_words_with_percentage(df, 'full_prompt', 150, 2, True, False)
+top_full_prompt_data = process_prompt_words_with_percentage(df, 'full_prompt', 300, 2, True, True)
 
 # Display as DataFrame
 full_prompt_df = pd.DataFrame(top_full_prompt_data)

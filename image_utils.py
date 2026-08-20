@@ -4,6 +4,7 @@ Image loading and management utilities
 import os
 import glob
 import random
+import re
 from send2trash import send2trash
 from sd_parsers import ParserManager
 
@@ -15,24 +16,35 @@ ROWS = 3
 COLS = 2
 IMAGES_PER_VIEW = ROWS * COLS
 
-def extract_prompt_info(file_path):
+def extract_prompt_info(image_path):
     # Initialize the parser manager
     parser_manager = ParserManager()
 
     # Initialize empty list to store parsed data
     parsed_data = []
 
-    prompt_info = parser_manager.parse(file_path)
-
-    # to string
+    prompt_info = parser_manager.parse(image_path)
     prompt_string = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
 
-    # convert to list, separate by comma
-    prompt_list = [item.strip() for item in prompt_string.split(',')]
+    # return early if string empty
+    if prompt_string == '':
+        return prompt_string
 
-    # remove empty rows
-    prompt_list = [item for item in prompt_list if item]
-    return prompt_list
+    # remove trailing whitespace
+    prompt_string = prompt_string.strip()
+
+    # remove consecutive commas with no text
+    while True:
+        collapsed = re.sub(r',\s*,', ',', prompt_string)
+        if collapsed == prompt_string:
+            break
+        prompt_string = collapsed
+
+    # remove trailing commas and add space between comma separated values
+    prompt_string = re.sub(r',+$', '', prompt_string)
+    prompt_string = re.sub(r',\s*(?!$)', ', ', prompt_string)
+
+    return prompt_string
 
 def normalize_path(file_path):
     """Convert any path to use forward slashes"""

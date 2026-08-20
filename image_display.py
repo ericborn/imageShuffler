@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt, QTimer, QSize, pyqtSignal
 from PyQt6.QtGui import QPixmap, QIcon
 from database import toggle_favorite, is_favorited, toggle_like, is_liked, get_image_stats
 from image_utils import delete_image, load_image_pixmap
+from fullscreen_viewer import FullscreenViewer
 import os
 
 class ImageDisplay(QFrame):
@@ -23,6 +24,7 @@ class ImageDisplay(QFrame):
         self.is_fading = is_fading
         self.stats = get_image_stats(image_path)
         self.setup_ui()
+        self.image_label.mousePressEvent = self.on_image_click
         
     def setup_ui(self):
         self.setObjectName("imageDisplay")
@@ -142,6 +144,9 @@ class ImageDisplay(QFrame):
         self.trash_btn.clicked.connect(self.delete_image)
         bottom_container.addWidget(self.trash_btn)
         
+        # click event also added to overlay to prevent it from blocking the image click
+        self.overlay.mousePressEvent = self.on_image_click
+
         overlay_layout.addLayout(bottom_container)
     
     def load_image(self):
@@ -245,3 +250,39 @@ class ImageDisplay(QFrame):
         super().resizeEvent(event)
         if hasattr(self, 'overlay'):
             self.overlay.setGeometry(0, 0, self.width(), self.height())
+
+    def on_image_click(self, event):
+        """Handle clicking on the image to open fullscreen viewer"""
+        print("Image was clicked!")
+        # Pause the slideshow in the parent
+        if self.parent():
+            # Find the main window
+            main_window = self.get_main_window()
+            if main_window and hasattr(main_window, 'pause_slideshow'):
+                main_window.pause_slideshow()
+        
+        # Open fullscreen viewer
+        fullscreen = FullscreenViewer(
+            self.image_path, 
+            parent=self, 
+            on_close_callback=self.on_fullscreen_close
+        )
+        fullscreen.show()
+
+    def on_fullscreen_close(self):
+        """Called when fullscreen viewer closes"""
+        # Resume slideshow
+        if self.parent():
+            main_window = self.get_main_window()
+            if main_window and hasattr(main_window, 'resume_after_fullscreen'):
+                main_window.resume_after_fullscreen()
+                
+    def get_main_window(self):
+        """Find the main window in the widget hierarchy"""
+        print("Called get_main_window")
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'image_grid') and hasattr(parent, 'row_transition_timer'):
+                return parent
+            parent = parent.parent()
+        return None
