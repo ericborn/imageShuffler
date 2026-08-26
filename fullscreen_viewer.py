@@ -132,12 +132,11 @@ class FullscreenViewer(QWidget):
         
         main_layout.addWidget(image_container, 1)  # Give it stretch factor
 
-        ############
         # Bottom bar for prompt words
         bottom_bar = QWidget()
         bottom_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.85);")
-        bottom_bar.setMinimumHeight(100)
-        bottom_bar.setMaximumHeight(300)
+        bottom_bar.setMinimumHeight(10)
+        #bottom_bar.setMaximumHeight(300)
         
         bottom_layout = QVBoxLayout(bottom_bar)
         bottom_layout.setContentsMargins(20, 15, 20, 15)
@@ -172,7 +171,7 @@ class FullscreenViewer(QWidget):
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
-        # Widget to hold word buttons - using GridLayout
+        # Widget to hold word buttons - using FlowLayout
         word_container = QWidget()
         word_container.setStyleSheet("background-color: transparent;")
         word_layout = QFlowLayout(word_container, margin=5, spacing=10)
@@ -194,15 +193,60 @@ class FullscreenViewer(QWidget):
        
         # Set the word container as the scroll area's widget
         scroll_area.setWidget(word_container)
+
         # Allow container to determine its own width
         word_container.setMaximumWidth(1020)
-        ############
 
         bottom_layout.addWidget(scroll_area)
         main_layout.addWidget(bottom_bar)
+
+        # Store references for dynamic resizing
+        self.bottom_bar = bottom_bar
+        self.word_container = word_container
+        self.prompt_label = prompt_label
+        self.scroll_area = scroll_area
+
+        # Use QTimer to adjust height after layout is complete
+        QTimer.singleShot(10, self.adjust_bottom_bar_height)
         
         # Enable mouse tracking for hover effects
         self.setMouseTracking(True)
+
+    def adjust_bottom_bar_height(self):
+        """Adjust bottom bar height based on word container content"""
+        if not hasattr(self, 'word_container') or not hasattr(self, 'bottom_bar'):
+            return
+        
+        # Get the actual height needed for the word container
+        word_container_height = self.word_container.sizeHint().height()
+        
+        # Add padding for margins and label
+        label_height = self.prompt_label.height() if hasattr(self, 'prompt_label') else 30
+        margins = self.bottom_bar.layout().contentsMargins()
+        spacing = self.bottom_bar.layout().spacing()
+        
+        # Calculate total height needed
+        total_height = (
+            margins.top() + 
+            label_height + 
+            spacing + 
+            word_container_height + 
+            margins.bottom() + 
+            20  # Extra padding for comfort
+        )
+        
+        # Set the new height (with min and max limits)
+        min_height = 100
+        max_height = 450  # Maximum height before scrollbar appears
+        new_height = max(min_height, min(total_height, max_height))
+        
+        self.bottom_bar.setFixedHeight(new_height)
+        
+        # If content exceeds max height, ensure scrollbar is visible
+        if total_height > max_height:
+            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        else:
+            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     
     def load_image(self):
         """Load and display the image fullscreen"""
