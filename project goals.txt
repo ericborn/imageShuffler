@@ -1,0 +1,147 @@
+project goals
+generate better images with fewer bad images
+    things to try
+        Indicate when an image is a 10/10 - use heart, reset db for a fresh start
+            - use same prompt with different seed
+            - use same prompt with different checkpoint
+            - use same prompt with different lora(s)*
+                *may completely alter the output
+
+        Mark tags as good/bad on images
+            - aggregate marked tags by category
+            - aggregate unmarked tags
+            - look for a correlation?
+
+regenerate good images to become great - use thumbs up
+    indicate when an image is good but has flaws
+        - face
+        - hands
+        - text
+        - other?
+
+
+new features
+change heart/thumb to green/yellow/red, add to slideshow and single image view
+red uninteresting/yellows flawed, good but not great/green great
+yellows should be tagged as regenerate with a reason, face/hands/text/other
+
+need to extract that data from the db, image prompt, seed, model, steps, cfg, etc.
+single image view should display full image path
+
+Generate Control groups: Pick 10 random prompts. Generate them across 3 seeds. Add these to your dataset to act as a "baseline" for what is inherently likable.
+
+Run a simple Chi-Square test on the most common nouns and adjectives to get a quick "kill-list" of words you should never use again.
+
+Use a Large Language Model (LLM) as a synthesizer: Feed your top 20 "Like" prompts and bottom 20 "Dislike" prompts into an LLM (like GPT-4) and ask: "Act as a prompt engineer. Given these positive and negative examples, write a 5-point style guide explaining the structural, grammatical, and lexical differences between these two sets." LLMs are remarkably good at spotting syntactic patterns (e.g., "You use commas after adjectives in the bad set, but use spaces in the good set").
+
+The ultimate test: Take the top 5 "good" words you discover and the top 5 "bad" words. Create 10 new prompts that are identical except you swap those words. Generate them. If the "good word" versions win 8 out of 10 times, you have successfully solved your problem.
+
+reasons for delete
+mutation
+    - too many/few limbs, hands, etc.
+    - hands blurry, duplicate fingers, etc.
+    - nipples missing, extra, misshaped
+
+aesthetics
+    - skin
+    - hair
+    - proportions
+    - clothing
+    - not interesting enough
+    - bad pose
+
+image
+    - picture in picture (split photo, 2 shots of same scene)
+    - composition (centered, cropped, dynamically framed)
+    - glitches - color splotches, colored box over face, color burn
+    - scene background
+    - lora - too strong, duplicated results (always shows same thing), bad results
+    - text
+    - too busy/simple
+    - misplaced items, clothing, etc. 
+    - style mismatch cartoon character on realistic background
+
+sd workflow with better randomization
+weight randomization for lora without having to create a separate calls ie lora:example:0.25-0.75 instead of {lora:example:0.25|lora:example:0.5|lora:example:0.75}
+if/else statement - if breast roll 0, ass must roll 1. breast roll 1, ass can roll 0 or 1
+weighting for specific prompts to make appear more often ie (fishnet(10), dress(5), tshirt(1))
+    this is possible with dynamics prompts, use (10::fishnet|5::dress|tshirt)
+
+medium → Subject hierarchy → pose/action → appearance/clothing → camera/composition → 
+environment/spatial layers → lighting → color system → materials → style/production → 
+typography → positive constraints
+
+medium - State what type of image is being made
+    
+Subject hierarchy
+exact count, primary versus secondary subject, scale relationship, 
+frame position, silhouette priority
+
+Appearance - age category when relevant and visually supported
+State what type of image is being made
+hair shape and movement
+face shape and expression, body silhouette, clothing construction, accessories:
+    
+descriptor, base, physique, breasts, nipples, ass, ethnicity, skin tone,
+face shape/expression, makeup, tats, hair texture, style, movement, saturation, 
+color, eye shape, color clothing state, wear, fit, category/lora-category, modifiers
+accessories
+
+Pose and interaction
+stance or seated/crouched geometry, torso rotation, limb positions, 
+weight distribution, gaze direction, hand-object contact, interaction between subjects
+
+Camera and composition
+shot size, camera height, viewing angle, wide/normal/telephoto perspective,
+frame placement, symmetry or asymmetry, leading lines, negative space,
+focus and depth of field
+
+Environment and spatial layering
+Describe foreground, middle ground, background, and atmosphere.
+State relationships rather than listing objects.
+
+Example:
+Broad sheets of wet black ink spread across pale stone in the foreground; 
+the woman occupies a circular platform in the middle ground; 
+temple columns dissolve into mist behind the animal.
+
+lighting
+source + direction + softness + shadow behavior + highlight behavior + secondary light
+
+Example:
+Soft diffused daylight enters from the upper left, producing gentle facial 
+shadows and a broad pearlescent highlight across the animal's white fur; 
+a faint warm rim light separates both figures from the mist.
+
+Color system
+dominant colors, secondary colors, accent color, saturation, brightness range
+warm/cool relationship, contrast
+
+A restrained palette of warm ivory, charcoal black, and muted cinnabar red; 
+most of the frame remains pale and low-saturation, while red appears only in 
+typography and small fabric details.
+
+Materials and texture
+Name the material and how it behaves under light:
+
+brushed aluminum with narrow linear highlights
+matte unglazed ceramic with soft chalky absorption
+translucent silk with gentle edge glow
+
+Style and production method
+Describe style by visual properties, not only artist names:
+
+late-1970s Japanese editorial illustration with flat screen-printed color fields, 
+restrained geometry, imperfect ink registration, and visible fibrous paper grain
+
+Typography and positive constraints
+For text:
+
+exact quoted text, line breaks, placement, size hierarchy, font class, color
+spacing, prohibition of extra text, 
+
+Positive constraints - state the desired visible state:
+a clean restrained composition containing only the described elements
+natural anatomically coherent hands with each hand clearly separated from nearby objects
+broad simple shapes and generous negative space
+
