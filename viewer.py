@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot
 from image_grid import ImageGrid, ROWS
 from hotkeys import QtKeyBinder
-from database import init_db
+from image_database import init_db
 from image_utils import refresh_list
 
 class PhotoViewer(QMainWindow):

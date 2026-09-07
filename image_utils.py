@@ -66,7 +66,8 @@ def refresh_list():
         for root, dirs, files in os.walk(images_path):
             for file in files:
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff')):
-                    if file == 'heart.png' or file == 'trash.png' or file == 'like.png':
+                    # Skip UI icons
+                    if file in ['heart.png', 'trash.png', 'like.png']:
                         continue
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, images_path)
@@ -76,16 +77,42 @@ def refresh_list():
         return []
     
     # Separate images into never seen and seen
-    from database import get_image_stats
+    from image_database import get_image_stats
     never_seen = []
     seen = []
-
-    for img_path in image_files:
-        stats = get_image_stats(img_path)
-        if stats['times_displayed'] == 0:
-            never_seen.append(img_path)
-        else:
-            seen.append(img_path)
+    
+    # Also check the new database for times_displayed
+    try:
+        import sqlite3
+        db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        for img_path in image_files:
+            abs_path = os.path.join(images_path, img_path)
+            cursor.execute("SELECT times_displayed FROM image_details WHERE file_path = ?", (abs_path,))
+            result = cursor.fetchone()
+            
+            if result and result[0] > 0:
+                seen.append(img_path)
+            else:
+                # Check old database as fallback
+                stats = get_image_stats(img_path)
+                if stats['times_displayed'] == 0:
+                    never_seen.append(img_path)
+                else:
+                    seen.append(img_path)
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error checking times_displayed: {e}")
+        # Fallback to old behavior
+        for img_path in image_files:
+            stats = get_image_stats(img_path)
+            if stats['times_displayed'] == 0:
+                never_seen.append(img_path)
+            else:
+                seen.append(img_path)
     
     random.shuffle(never_seen)
     random.shuffle(seen)
@@ -97,7 +124,7 @@ def refresh_list():
 
 def get_next_images(count=None):
     """Get next batch of images for display"""
-    from database import mark_as_seen
+    from image_database import mark_as_seen
     global all_images, current_index
     
     if count is None:
@@ -128,15 +155,17 @@ def get_next_images(count=None):
     return selected
 
 def delete_image(image_path):
-    """Delete an image from disk and remove from favorites"""
-    from database import delete_from_db
+    """Delete an image from disk but preserve database records for analysis"""
+    from image_database import mark_deleted  # Keep the old function but we'll modify it
+    
     abs_path = os.path.join(get_images_path(), image_path)
     abs_path = os.path.normpath(abs_path)
     
     if os.path.exists(abs_path):
         send2trash(abs_path)
     
-    delete_from_db(image_path)
+    # Mark the image as deleted in the new database, but don't delete the record
+    mark_deleted(image_path)
     return True
 
 def load_image_pixmap(image_path, target_width=500, target_height=500):

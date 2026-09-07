@@ -1,75 +1,32 @@
 """
-Fullscreen single image viewer with prompt word toggles
+Fullscreen single image viewer with review interface
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QScrollArea, QFrame, QSizePolicy, QGridLayout, QLayout
+    QScrollArea, QFrame, QSizePolicy, QGridLayout, QLayout,
+    QComboBox, QLineEdit, QTextEdit
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint, QRect, QSize, Qt
+from PyQt6.QtCore import Qt, QTimer, QPoint, QRect, QSize
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
-from database import get_image_prompt, get_selected_prompt_words, toggle_prompt_word
 from image_utils import load_image_pixmap, get_images_path
 import os
-
-class PromptWordButton(QPushButton):
-    """Toggle button for prompt words"""
-    
-    def __init__(self, word, image_path, parent=None):
-        super().__init__(word, parent)
-        self.word = word
-        self.image_path = image_path
-        self.is_selected = word in get_selected_prompt_words(image_path)
-        self.setCheckable(True)
-        self.setChecked(self.is_selected)
-        self.update_style()
-        self.clicked.connect(self.toggle_selection)
-        
-    def update_style(self):
-        if self.is_selected:
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    border: 2px solid #4CAF50;
-                    border-radius: 15px;
-                    padding: 8px 16px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #333;
-                    color: #ccc;
-                    border: 2px solid #555;
-                    border-radius: 15px;
-                    padding: 8px 16px;
-                    font-size: 14px;
-                }
-                QPushButton:hover {
-                    background-color: #444;
-                    border-color: #666;
-                }
-            """)
-    
-    def toggle_selection(self):
-        self.is_selected = toggle_prompt_word(self.image_path, self.word)
-        self.setChecked(self.is_selected)
-        self.update_style()
+import sqlite3
 
 class FullscreenViewer(QWidget):
-    """Fullscreen popup for viewing a single image with prompt words"""
+    """Fullscreen popup for viewing a single image with review interface"""
     
     def __init__(self, image_path, parent=None, on_close_callback=None):
         super().__init__(parent, Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
         self.image_path = image_path
         self.parent_widget = parent
         self.on_close_callback = on_close_callback
+        self.review_data = {
+            'verdict': None,
+            'fix_category': None,
+            'fix_reason': ''
+        }
         self.setup_ui()
+        self.load_review_data()
         self.showFullScreen()
         
     def setup_ui(self):
@@ -83,12 +40,16 @@ class FullscreenViewer(QWidget):
         
         # Top bar with close button
         top_bar = QWidget()
-        top_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.7);")
+        top_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.8);")
         top_bar.setFixedHeight(50)
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(20, 0, 20, 0)
         
-        # Spacer to push close button to right
+        # Title
+        title_label = QLabel("📋 Image Review")
+        title_label.setStyleSheet("color: #FFB74D; font-size: 18px; font-weight: bold;")
+        top_layout.addWidget(title_label)
+        
         top_layout.addStretch()
         
         # Close button
@@ -113,159 +74,281 @@ class FullscreenViewer(QWidget):
         
         main_layout.addWidget(top_bar)
         
-        # Image display area
+        # Main content area (image + review panel)
+        content_container = QWidget()
+        content_container.setStyleSheet("background-color: #0a0a0a;")
+        content_layout = QHBoxLayout(content_container)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setSpacing(15)
+        
+        # Image display (left side)
         image_container = QWidget()
-        image_container.setStyleSheet("background-color: #0a0a0a;")
+        image_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         image_layout = QVBoxLayout(image_container)
         image_layout.setContentsMargins(0, 0, 0, 0)
         image_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Load and display image
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Expanding
-        )
+        self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.load_image()
         image_layout.addWidget(self.image_label)
         
-        main_layout.addWidget(image_container, 1)  # Give it stretch factor
-
-        # Bottom bar for prompt words
-        bottom_bar = QWidget()
-        bottom_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.85);")
-        bottom_bar.setMinimumHeight(10)
-        #bottom_bar.setMaximumHeight(300)
+        content_layout.addWidget(image_container, 3)  # 3 parts of the space
         
-        bottom_layout = QVBoxLayout(bottom_bar)
-        bottom_layout.setContentsMargins(20, 15, 20, 15)
-        bottom_layout.setSpacing(10)
-        
-        # Prompt label
-        prompt_label = QLabel("📝 Prompt Words:")
-        prompt_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
-        bottom_layout.addWidget(prompt_label)
-        
-        # Scroll area for word buttons
-        scroll_area = QScrollArea()
-        scroll_area.setStyleSheet("""
-            QScrollArea {
-                background-color: transparent;
-                border: none;
-            }
-            QScrollBar:horizontal {
-                height: 10px;
-                background: #2a2a2a;
-                border-radius: 5px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #555;
-                border-radius: 5px;
-            }
-            QScrollBar::handle:horizontal:hover {
-                background: #777;
+        # Review panel (right side)
+        review_panel = QWidget()
+        review_panel.setMaximumWidth(500)
+        review_panel.setMinimumWidth(350)
+        review_panel.setStyleSheet("""
+            QWidget {
+                background-color: rgba(20, 20, 30, 0.95);
+                border-radius: 8px;
             }
         """)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        review_layout = QVBoxLayout(review_panel)
+        review_layout.setContentsMargins(20, 20, 20, 20)
+        review_layout.setSpacing(15)
         
-        # Widget to hold word buttons - using FlowLayout
-        word_container = QWidget()
-        word_container.setStyleSheet("background-color: transparent;")
-        word_layout = QFlowLayout(word_container, margin=5, spacing=10)
-        word_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-
-        # Get prompt words
-        prompt_words = get_image_prompt(self.image_path)
-
-        if prompt_words:
-            for word in prompt_words:
-                word_btn = PromptWordButton(word.strip(), self.image_path, self)
-                # Allow button to size to its content
-                word_btn.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-                word_layout.addWidget(word_btn)
-        else:
-            no_prompt_label = QLabel("No prompt words available for this image")
-            no_prompt_label.setStyleSheet("color: #666; font-size: 14px;")
-            word_layout.addWidget(no_prompt_label)
-       
-        # Set the word container as the scroll area's widget
-        scroll_area.setWidget(word_container)
-
-        # Allow container to determine its own width
-        word_container.setMaximumWidth(1020)
-
-        bottom_layout.addWidget(scroll_area)
-        main_layout.addWidget(bottom_bar)
-
-        # Store references for dynamic resizing
-        self.bottom_bar = bottom_bar
-        self.word_container = word_container
-        self.prompt_label = prompt_label
-        self.scroll_area = scroll_area
-
-        # Use QTimer to adjust height after layout is complete
-        QTimer.singleShot(10, self.adjust_bottom_bar_height)
+        # Prompt display section
+        prompt_label = QLabel("📝 Prompt")
+        prompt_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
+        review_layout.addWidget(prompt_label)
         
-        # Enable mouse tracking for hover effects
-        self.setMouseTracking(True)
-
-    def adjust_bottom_bar_height(self):
-        """Adjust bottom bar height based on word container content"""
-        if not hasattr(self, 'word_container') or not hasattr(self, 'bottom_bar'):
-            return
+        # Prompt text area
+        self.prompt_display = QTextEdit()
+        self.prompt_display.setReadOnly(True)
+        self.prompt_display.setMaximumHeight(120)
+        self.prompt_display.setStyleSheet("""
+            QTextEdit {
+                background-color: rgba(0, 0, 0, 0.5);
+                color: #ccc;
+                border: 1px solid #333;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 12px;
+            }
+        """)
+        self.load_prompt()
+        review_layout.addWidget(self.prompt_display)
         
-        # Get the actual height needed for the word container
-        word_container_height = self.word_container.sizeHint().height()
+        # Layer breakdown
+        layer_label = QLabel("📊 Layer Breakdown")
+        layer_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
+        review_layout.addWidget(layer_label)
         
-        # Add padding for margins and label
-        label_height = self.prompt_label.height() if hasattr(self, 'prompt_label') else 30
-        margins = self.bottom_bar.layout().contentsMargins()
-        spacing = self.bottom_bar.layout().spacing()
+        # Layer scroll area
+        layer_scroll = QScrollArea()
+        layer_scroll.setStyleSheet("""
+            QScrollArea {
+                background-color: rgba(0, 0, 0, 0.3);
+                border: 1px solid #333;
+                border-radius: 4px;
+            }
+        """)
+        layer_scroll.setMaximumHeight(150)
+        layer_scroll.setWidgetResizable(True)
         
-        # Calculate total height needed
-        total_height = (
-            margins.top() + 
-            label_height + 
-            spacing + 
-            word_container_height + 
-            margins.bottom() + 
-            20  # Extra padding for comfort
-        )
+        layer_container = QWidget()
+        layer_layout = QVBoxLayout(layer_container)
+        layer_layout.setSpacing(3)
+        layer_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Set the new height (with min and max limits)
-        min_height = 100
-        max_height = 450  # Maximum height before scrollbar appears
-        new_height = max(min_height, min(total_height, max_height))
+        self.layer_widgets = []
+        self.load_layers(layer_layout)
         
-        self.bottom_bar.setFixedHeight(new_height)
+        layer_scroll.setWidget(layer_container)
+        review_layout.addWidget(layer_scroll)
         
-        # If content exceeds max height, ensure scrollbar is visible
-        if total_height > max_height:
-            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        else:
-            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # Separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet("background-color: #333;")
+        review_layout.addWidget(separator)
+        
+        # Review verdict section
+        verdict_label = QLabel("⭐ Your Review")
+        verdict_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
+        review_layout.addWidget(verdict_label)
+        
+        # Verdict buttons
+        verdict_container = QHBoxLayout()
+        verdict_container.setSpacing(8)
+        
+        self.keeper_btn = QPushButton("✅ Keeper")
+        self.keeper_btn.setFixedHeight(35)
+        self.keeper_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(46, 204, 113, 0.6);
+                color: white;
+                border: 2px solid rgba(46, 204, 113, 0.6);
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: rgba(46, 204, 113, 0.9);
+            }
+            QPushButton[selected="true"] {
+                background-color: rgba(46, 204, 113, 1);
+                border: 2px solid white;
+            }
+        """)
+        self.keeper_btn.clicked.connect(lambda: self.set_verdict('Keeper'))
+        verdict_container.addWidget(self.keeper_btn)
+        
+        self.fixer_btn = QPushButton("🟡 Fixer")
+        self.fixer_btn.setFixedHeight(35)
+        self.fixer_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(241, 196, 15, 0.6);
+                color: #333;
+                border: 2px solid rgba(241, 196, 15, 0.6);
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: rgba(241, 196, 15, 0.9);
+            }
+            QPushButton[selected="true"] {
+                background-color: rgba(241, 196, 15, 1);
+                border: 2px solid white;
+            }
+        """)
+        self.fixer_btn.clicked.connect(lambda: self.set_verdict('Fixer'))
+        verdict_container.addWidget(self.fixer_btn)
+        
+        self.dud_btn = QPushButton("🔴 Dud")
+        self.dud_btn.setFixedHeight(35)
+        self.dud_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(231, 76, 60, 0.6);
+                color: white;
+                border: 2px solid rgba(231, 76, 60, 0.6);
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: rgba(231, 76, 60, 0.9);
+            }
+            QPushButton[selected="true"] {
+                background-color: rgba(231, 76, 60, 1);
+                border: 2px solid white;
+            }
+        """)
+        self.dud_btn.clicked.connect(lambda: self.set_verdict('Dud'))
+        verdict_container.addWidget(self.dud_btn)
+        
+        review_layout.addLayout(verdict_container)
+        
+        # Fix category dropdown (only visible for Fixer)
+        self.fix_category_widget = QWidget()
+        self.fix_category_container = QHBoxLayout(self.fix_category_widget)
+        self.fix_category_container.setSpacing(8)
+        self.fix_category_widget.setVisible(False)
+        
+        fix_label = QLabel("Fix Category:")
+        fix_label.setStyleSheet("color: #ccc; font-size: 13px;")
+        self.fix_category_container.addWidget(fix_label)
+        
+        self.fix_category_combo = QComboBox()
+        self.fix_category_combo.addItems(['', 'Anatomy', 'Background', 'Clothing', 'Lighting', 'Composition', 'Other'])
+        self.fix_category_combo.setStyleSheet("""
+            QComboBox {
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: 1px solid #555;
+                border-radius: 3px;
+                padding: 5px;
+                font-size: 12px;
+                min-width: 120px;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #2a2a2a;
+                color: white;
+                selection-background-color: #444;
+            }
+        """)
+        self.fix_category_combo.currentTextChanged.connect(self.update_fix_category)
+        self.fix_category_container.addWidget(self.fix_category_combo)
+        self.fix_category_container.addStretch()
+        
+        review_layout.addLayout(self.fix_category_container)
+        
+        # Fix reason text input (only visible for Fixer)
+        self.fix_reason_widget = QWidget()
+        self.fix_reason_container = QVBoxLayout(self.fix_reason_widget)
+        self.fix_reason_container.setSpacing(5)
+        self.fix_reason_widget.setVisible(False)
+        
+        reason_label = QLabel("Fix Reason:")
+        reason_label.setStyleSheet("color: #ccc; font-size: 13px;")
+        self.fix_reason_container.addWidget(reason_label)
+        
+        self.fix_reason_edit = QLineEdit()
+        self.fix_reason_edit.setPlaceholderText("e.g., 'Mangled hands' or 'Poor composition'")
+        self.fix_reason_edit.setStyleSheet("""
+            QLineEdit {
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: 1px solid #555;
+                border-radius: 3px;
+                padding: 8px;
+                font-size: 12px;
+            }
+        """)
+        self.fix_reason_edit.textChanged.connect(self.update_fix_reason)
+        self.fix_reason_container.addWidget(self.fix_reason_edit)
+        
+        review_layout.addLayout(self.fix_reason_container)
+        
+        review_layout.addStretch()
+        
+        # Metadata section
+        metadata_label = QLabel("ℹ️ Metadata")
+        metadata_label.setStyleSheet("color: #FFB74D; font-size: 14px; font-weight: bold;")
+        review_layout.addWidget(metadata_label)
+        
+        self.metadata_display = QTextEdit()
+        self.metadata_display.setReadOnly(True)
+        self.metadata_display.setMaximumHeight(80)
+        self.metadata_display.setStyleSheet("""
+            QTextEdit {
+                background-color: rgba(0, 0, 0, 0.5);
+                color: #888;
+                border: 1px solid #333;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 11px;
+            }
+        """)
+        self.load_metadata()
+        review_layout.addWidget(self.metadata_display)
+        
+        content_layout.addWidget(review_panel, 1)  # 1 part of the space
+        
+        main_layout.addWidget(content_container)
     
     def load_image(self):
-        """Load and display the image fullscreen"""
-        # Get screen size
+        """Load and display the image"""
         screen = self.screen()
         if screen:
             screen_geometry = screen.geometry()
-            max_width = screen_geometry.width() - 40
-            max_height = screen_geometry.height() - 220  # Account for top and bottom bars
+            max_width = screen_geometry.width() - 420  # Account for review panel
+            max_height = screen_geometry.height() - 160  # Account for top bar
         else:
             max_width = 1080
             max_height = 1920
         
-        # Load image
         abs_path = os.path.join(get_images_path(), self.image_path)
         if os.path.exists(abs_path):
             pixmap = QPixmap(abs_path)
             if not pixmap.isNull():
-                # Scale to fit screen while maintaining aspect ratio
                 scaled_pixmap = pixmap.scaled(
                     max_width, max_height,
                     Qt.AspectRatioMode.KeepAspectRatio,
@@ -274,17 +357,199 @@ class FullscreenViewer(QWidget):
                 self.image_label.setPixmap(scaled_pixmap)
                 return
         
-        # Show placeholder if image can't be loaded
         self.image_label.setText("📷\nImage Not Found")
         self.image_label.setStyleSheet("color: #666; font-size: 24px; background-color: #0a0a0a;")
     
+    def load_prompt(self):
+        """Load prompt from database"""
+        try:
+            abs_path = os.path.join(get_images_path(), self.image_path)
+            db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT positive_prompt FROM image_details WHERE file_path = ?", (abs_path,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result and result[0]:
+                self.prompt_display.setText(result[0])
+            else:
+                self.prompt_display.setText("No prompt data available")
+        except Exception as e:
+            self.prompt_display.setText(f"Error loading prompt: {e}")
+    
+    def load_layers(self, layout):
+        """Load layer breakdown from database"""
+        try:
+            abs_path = os.path.join(get_images_path(), self.image_path)
+            db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT layer_number, layer_category, layer_text, execution_status, conflict_type, is_dominant
+                FROM layer_evaluations le
+                JOIN image_details id ON le.image_id = id.image_id
+                WHERE id.file_path = ?
+                ORDER BY layer_number
+            """, (abs_path,))
+            results = cursor.fetchall()
+            conn.close()
+            
+            if results:
+                for row in results:
+                    layer_widget = QLabel(f"{row[1]}: {row[2][:50]}{'...' if len(row[2]) > 50 else ''}")
+                    layer_widget.setStyleSheet("""
+                        color: #aaa;
+                        background-color: rgba(0, 0, 0, 0.3);
+                        padding: 2px 8px;
+                        border-radius: 3px;
+                        font-size: 11px;
+                    """)
+                    layout.addWidget(layer_widget)
+                    self.layer_widgets.append(layer_widget)
+            else:
+                no_layers = QLabel("No layer data available. Prompt may not be in colon-delimited format.")
+                no_layers.setStyleSheet("color: #666; font-size: 12px; padding: 5px;")
+                layout.addWidget(no_layers)
+                self.layer_widgets.append(no_layers)
+        except Exception as e:
+            error_label = QLabel(f"Error loading layers: {e}")
+            error_label.setStyleSheet("color: #666; font-size: 12px; padding: 5px;")
+            layout.addWidget(error_label)
+            self.layer_widgets.append(error_label)
+    
+    def load_metadata(self):
+        """Load metadata from database"""
+        try:
+            abs_path = os.path.join(get_images_path(), self.image_path)
+            db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT model, steps, scheduler, cfg, seed, loras
+                FROM image_details WHERE file_path = ?
+            """, (abs_path,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                model, steps, scheduler, cfg, seed, loras = result
+                metadata = f"Model: {model or 'N/A'}\n"
+                metadata += f"Steps: {steps or 'N/A'} | Scheduler: {scheduler or 'N/A'}\n"
+                metadata += f"CFG: {cfg or 'N/A'} | Seed: {seed or 'N/A'}"
+                if loras:
+                    metadata += f"\nLoRAs: {loras}"
+                metadata += "\n" + abs_path
+                self.metadata_display.setText(metadata)
+            else:
+                self.metadata_display.setText("No metadata available")
+        except Exception as e:
+            self.metadata_display.setText(f"Error loading metadata: {e}")
+    
+    def load_review_data(self):
+        """Load existing review data from database"""
+        try:
+            abs_path = os.path.join(get_images_path(), self.image_path)
+            db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT verdict, fix_category, fix_reason
+                FROM image_details WHERE file_path = ?
+            """, (abs_path,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result and result[0]:
+                verdict, fix_category, fix_reason = result
+                self.review_data['verdict'] = verdict
+                self.review_data['fix_category'] = fix_category
+                self.review_data['fix_reason'] = fix_reason or ''
+                
+                # Update UI
+                self.set_verdict(verdict, restore_data=True)
+                if fix_category:
+                    self.fix_category_combo.setCurrentText(fix_category)
+                if fix_reason:
+                    self.fix_reason_edit.setText(fix_reason)
+        except Exception as e:
+            print(f"Error loading review data: {e}")
+    
+    def set_verdict(self, verdict, restore_data=False):
+        """Set the verdict and update button states"""
+        if not restore_data:
+            self.review_data['verdict'] = verdict
+        
+        self.keeper_btn.setProperty("selected", verdict == 'Keeper')
+        self.fixer_btn.setProperty("selected", verdict == 'Fixer')
+        self.dud_btn.setProperty("selected", verdict == 'Dud')
+        
+        for btn in [self.keeper_btn, self.fixer_btn, self.dud_btn]:
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+        
+        is_fixer = verdict == 'Fixer'
+        self.fix_category_widget.setVisible(is_fixer)
+        self.fix_reason_widget.setVisible(is_fixer)
+        
+        if not restore_data:
+            self.save_review_to_db()
+    
+    def update_fix_category(self, category):
+        self.review_data['fix_category'] = category if category else None
+        self.save_review_to_db()
+    
+    def update_fix_reason(self, reason):
+        self.review_data['fix_reason'] = reason
+        self.save_review_to_db()
+    
+    def save_review_to_db(self):
+        """Save the review data to the database"""
+        try:
+            import image_database as idb
+            from image_utils import get_images_path
+            
+            # Get image ID from file path
+            abs_path = os.path.join(get_images_path(), self.image_path)
+            
+            # Find the image in the database
+            result = idb.find_image(abs_path)
+            
+            if result:
+                image_id = result[0]
+                # Only save if we have a verdict
+                if self.review_data['verdict']:
+                    idb.update_image_review(image_id, self.review_data)
+            else:
+                # Image not in database yet - import it
+                from sd_parsers import ParserManager
+                parser_manager = ParserManager()
+                metadata = idb.extract_metadata_from_image(abs_path, parser_manager)
+                image_id = idb.insert_image(metadata)
+                
+                # Parse and insert layers
+                if metadata['positive_prompt'] and metadata['positive_prompt'] not in ['NO_METADATA', 'ERROR']:
+                    layers = idb.parse_prompt_layers(metadata['positive_prompt'])
+                    for layer in layers:
+                        layer['image_id'] = image_id
+                        idb.insert_layer_evaluation(layer)
+                
+                # Now save the review
+                if self.review_data['verdict']:
+                    idb.update_image_review(image_id, self.review_data)
+            
+        except Exception as e:
+            print(f"Error saving review to database: {e}")
+    
     def close_viewer(self):
         """Close the fullscreen viewer and resume slideshow"""
-        # Resume slideshow in parent
         if self.parent_widget and hasattr(self.parent_widget, 'resume_after_fullscreen'):
             self.parent_widget.resume_after_fullscreen()
         
-        # Call the close callback if provided
         if self.on_close_callback:
             self.on_close_callback()
         
@@ -300,87 +565,8 @@ class FullscreenViewer(QWidget):
         """Handle close event"""
         self.close_viewer()
         super().closeEvent(event)
-
-class QFlowLayout(QLayout):
-    """Flow layout that wraps items with dynamic sizing"""
     
-    def __init__(self, parent=None, margin=0, spacing=-1):
-        super().__init__(parent)
-        self.item_list = []
-        self.setContentsMargins(margin, margin, margin, margin)
-        self.setSpacing(spacing)
-    
-    def __del__(self):
-        item = self.takeAt(0)
-        while item:
-            item = self.takeAt(0)
-    
-    def addItem(self, item):
-        self.item_list.append(item)
-    
-    def count(self):
-        return len(self.item_list)
-    
-    def itemAt(self, index):
-        if 0 <= index < len(self.item_list):
-            return self.item_list[index]
-        return None
-    
-    def takeAt(self, index):
-        if 0 <= index < len(self.item_list):
-            return self.item_list.pop(index)
-        return None
-    
-    def expandingDirections(self):
-        return Qt.Orientation.Horizontal
-    
-    def hasHeightForWidth(self):
-        return True
-    
-    def heightForWidth(self, width):
-        height = self.doLayout(QRect(0, 0, width, 0), True)
-        return height
-    
-    def setGeometry(self, rect):
-        super().setGeometry(rect)
-        self.doLayout(rect, False)
-    
-    def sizeHint(self):
-        return self.minimumSize()
-    
-    def minimumSize(self):
-        size = QSize()
-        for item in self.item_list:
-            size = size.expandedTo(item.minimumSize())
-        margins = self.contentsMargins()
-        size += QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
-        return size
-    
-    def doLayout(self, rect, test_only):
-        x = rect.x()
-        y = rect.y()
-        line_height = 0
-        max_width = rect.width()
-        spacing = self.spacing()
-        
-        for item in self.item_list:
-            widget = item.widget()
-            if widget:
-                # Get the widget's natural size hint
-                size_hint = widget.sizeHint()
-                next_x = x + size_hint.width() + spacing
-                
-                # Check if we need to wrap to next row
-                if next_x - spacing > rect.right() and line_height > 0:
-                    x = rect.x()
-                    y = y + line_height + spacing
-                    next_x = x + size_hint.width() + spacing
-                    line_height = 0
-                
-                if not test_only:
-                    item.setGeometry(QRect(QPoint(x, y), size_hint))
-                
-                x = next_x
-                line_height = max(line_height, size_hint.height())
-        
-        return y + line_height - rect.y()
+    def resizeEvent(self, event):
+        """Handle resize to update image"""
+        super().resizeEvent(event)
+        self.load_image()

@@ -30,16 +30,73 @@ from collections import Counter
 from wordcloud import WordCloud
 import re
 import os
+import json
 #from PIL import Image
 #import numpy as np
+
+def extract_loras(json_data):
+    """Extract lora_name: strength_model pairs from a ComfyUI workflow JSON.
+    
+    Accepts a JSON string, dict, or file path.
+    """
+    # Handle string, dict, or file path input
+    if isinstance(json_data, dict):
+        data = json_data
+    elif isinstance(json_data, str) and json_data.strip().startswith("{"):
+        data = json.loads(json_data)
+    else:
+        with open(json_data, "r") as f:
+            data = json.load(f)
+
+    lora_entries = []
+
+    for node in data.get("nodes", []):
+        named_values = node.get("widgets_values_named", {})
+        lora_name = named_values.get("lora_name")
+        strength = named_values.get("strength_model")
+
+        if lora_name is not None and strength is not None:
+            lora_entries.append(f"{lora_name}: {strength}")
+
+    return ", ".join(lora_entries)
+
+def extract_loras_from_prompt(prompt_text: str): #-> Optional[str]:
+    """
+    Extract LoRA information from the prompt text.
+    Looks for patterns like <lora:name:weight> or <lora:name>
+    
+    Args:
+        prompt_text: The full prompt string
+    
+    Returns:
+        Comma-separated string of LoRA names and weights, or None if none found
+    """
+    
+    if not prompt_text:
+        return None
+    
+    lora_pattern = r'<lora:([^:>]+)(?::([^>]+))?>'
+    matches = re.findall(lora_pattern, prompt_text)
+    
+    if not matches:
+        return None
+    
+    lora_entries = []
+    for name, weight in matches:
+        if weight:
+            lora_entries.append(f"{name}: {weight}")
+        else:
+            lora_entries.append(name)
+    
+    return ", ".join(lora_entries) if lora_entries else None
 
 ##########
 # display all columns
 ##########
 
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
-cursor.execute('SELECT name FROM pragma_table_info("favorites")')
+cursor.execute('SELECT name FROM pragma_table_info("image_details")')
 rows = cursor.fetchall()
 
 for row in rows:
@@ -106,12 +163,42 @@ for row in rows:
 conn.close()
 
 #########
+# extract loras
+#########
+
+# lora in raw params
+photo_path = "E:\\Images\\txt2img-images\\static\\comfy\\Krea2_RedMix_00020_.png"
+
+# lora in full prompt
+#photo_path = "E:\\Images\\txt2img-images\\static\\2026-08-24\\00178-808625428.png"
+
+# Initialize the parser manager
+parser_manager = ParserManager()
+
+# Initialize empty list to store parsed data
+parsed_data = []
+
+prompt_info = parser_manager.parse(photo_path)
+
+# Extract LoRAs from prompt
+full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
+loras = extract_loras_from_prompt(full_prompt)
+
+# If no LoRAs found in prompt, try raw_parameters
+if not loras and hasattr(prompt_info, 'raw_parameters') and prompt_info.raw_parameters:
+    raw_parameters = prompt_info.raw_parameters.get('workflow', {})
+    if raw_parameters:
+        loras = extract_loras(raw_parameters)
+                
+#########
 # find tags of single image from filename
 #########
 #photo_id = '13406--1897453673.png'
-#photo_path = "E:\\Images\\txt2img-images\\prompt test\\negative\\test - Copy (2)\\00018-3450872492.png"
+#photo_path = "E:\\Images\\txt2img-images\\static\\comfy\\Krea2_RedMix_00020_.png"
 
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
+#conn = sqlite3.connect('favorites.db')
+
 cursor = conn.cursor()
 cursor.execute("SELECT * FROM favorites where favorited = 1 limit 1")
 photo_path = cursor.fetchone()[1]
