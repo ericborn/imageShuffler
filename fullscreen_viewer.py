@@ -30,7 +30,7 @@ class FullscreenViewer(QWidget):
         self.showFullScreen()
         
     def setup_ui(self):
-        """Setup the fullscreen UI"""
+        """Setup the fullscreen UI with bottom review panel"""
         self.setStyleSheet("background-color: #1a1a1a;")
         
         # Main layout
@@ -74,16 +74,10 @@ class FullscreenViewer(QWidget):
         
         main_layout.addWidget(top_bar)
         
-        # Main content area (image + review panel)
-        content_container = QWidget()
-        content_container.setStyleSheet("background-color: #0a0a0a;")
-        content_layout = QHBoxLayout(content_container)
-        content_layout.setContentsMargins(10, 10, 10, 10)
-        content_layout.setSpacing(15)
-        
-        # Image display (left side)
+        # Image display (takes most of the space)
         image_container = QWidget()
         image_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        image_container.setStyleSheet("background-color: #0a0a0a;")
         image_layout = QVBoxLayout(image_container)
         image_layout.setContentsMargins(0, 0, 0, 0)
         image_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -94,50 +88,93 @@ class FullscreenViewer(QWidget):
         self.load_image()
         image_layout.addWidget(self.image_label)
         
-        content_layout.addWidget(image_container, 3)  # 3 parts of the space
+        main_layout.addWidget(image_container, 1)  # Takes remaining space
         
-        # Review panel (right side)
+        # Bottom review panel
         review_panel = QWidget()
-        review_panel.setMaximumWidth(500)
-        review_panel.setMinimumWidth(350)
         review_panel.setStyleSheet("""
             QWidget {
                 background-color: rgba(20, 20, 30, 0.95);
-                border-radius: 8px;
+                border-top: 1px solid #333;
             }
         """)
+        review_panel.setMaximumHeight(550)
+        review_panel.setMinimumHeight(500)
+        
         review_layout = QVBoxLayout(review_panel)
-        review_layout.setContentsMargins(20, 20, 20, 20)
-        review_layout.setSpacing(15)
+        review_layout.setContentsMargins(20, 15, 20, 15)
+        review_layout.setSpacing(10)
         
-        # Prompt display section
+        # Top row: Prompt on left, Metadata on right
+        top_row = QHBoxLayout()
+        top_row.setSpacing(5)
+        
+        # Prompt section (left)
+        prompt_container = QWidget()
+        prompt_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        prompt_layout = QVBoxLayout(prompt_container)
+        prompt_layout.setContentsMargins(0, 0, 0, 0)
+        prompt_layout.setSpacing(3)
+        
         prompt_label = QLabel("📝 Prompt")
-        prompt_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
-        review_layout.addWidget(prompt_label)
+        prompt_label.setStyleSheet("color: #FFB74D; font-size: 14px; font-weight: bold;")
+        prompt_layout.addWidget(prompt_label)
         
-        # Prompt text area
         self.prompt_display = QTextEdit()
         self.prompt_display.setReadOnly(True)
-        self.prompt_display.setMaximumHeight(120)
+        self.prompt_display.setMaximumHeight(220)
         self.prompt_display.setStyleSheet("""
             QTextEdit {
                 background-color: rgba(0, 0, 0, 0.5);
                 color: #ccc;
                 border: 1px solid #333;
                 border-radius: 4px;
-                padding: 8px;
-                font-size: 12px;
+                padding: 1px;
+                font-size: 16px;
             }
         """)
         self.load_prompt()
-        review_layout.addWidget(self.prompt_display)
+        prompt_layout.addWidget(self.prompt_display)
         
-        # Layer breakdown
+        top_row.addWidget(prompt_container, 2)
+        
+        # Metadata section (right)
+        metadata_container = QWidget()
+        metadata_container.setMaximumWidth(350)
+        metadata_layout = QVBoxLayout(metadata_container)
+        metadata_layout.setContentsMargins(0, 0, 0, 0)
+        metadata_layout.setSpacing(3)
+        
+        metadata_label = QLabel("ℹ️ Metadata")
+        metadata_label.setStyleSheet("color: #FFB74D; font-size: 14px; font-weight: bold;")
+        metadata_layout.addWidget(metadata_label)
+        
+        self.metadata_display = QTextEdit()
+        self.metadata_display.setReadOnly(True)
+        self.metadata_display.setMaximumHeight(220)
+        self.metadata_display.setStyleSheet("""
+            QTextEdit {
+                background-color: rgba(0, 0, 0, 0.5);
+                color: #888;
+                border: 1px solid #333;
+                border-radius: 4px;
+                padding: 1px;
+                font-size: 16px;
+            }
+        """)
+        self.load_metadata()
+        metadata_layout.addWidget(self.metadata_display)
+        
+        top_row.addWidget(metadata_container, 1)
+        
+        review_layout.addLayout(top_row)
+        
+        # Middle row: Layer breakdown
         layer_label = QLabel("📊 Layer Breakdown")
-        layer_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
+        layer_label.setStyleSheet("color: #FFB74D; font-size: 14px; font-weight: bold;")
         review_layout.addWidget(layer_label)
         
-        # Layer scroll area
+        # Layer scroll area - horizontal scroll disabled
         layer_scroll = QScrollArea()
         layer_scroll.setStyleSheet("""
             QScrollArea {
@@ -145,9 +182,23 @@ class FullscreenViewer(QWidget):
                 border: 1px solid #333;
                 border-radius: 4px;
             }
+            QScrollBar:vertical {
+                width: 10px;
+                background: #2a2a2a;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical {
+                background: #555;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #777;
+            }
         """)
-        layer_scroll.setMaximumHeight(150)
+        layer_scroll.setMaximumHeight(140)
         layer_scroll.setWidgetResizable(True)
+        layer_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        layer_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         layer_container = QWidget()
         layer_layout = QVBoxLayout(layer_container)
@@ -160,23 +211,16 @@ class FullscreenViewer(QWidget):
         layer_scroll.setWidget(layer_container)
         review_layout.addWidget(layer_scroll)
         
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("background-color: #333;")
-        review_layout.addWidget(separator)
-        
-        # Review verdict section
-        verdict_label = QLabel("⭐ Your Review")
-        verdict_label.setStyleSheet("color: #FFB74D; font-size: 16px; font-weight: bold;")
-        review_layout.addWidget(verdict_label)
+        # Bottom row: Review controls
+        review_controls = QHBoxLayout()
+        review_controls.setSpacing(10)
         
         # Verdict buttons
         verdict_container = QHBoxLayout()
-        verdict_container.setSpacing(8)
+        verdict_container.setSpacing(5)
         
         self.keeper_btn = QPushButton("✅ Keeper")
-        self.keeper_btn.setFixedHeight(35)
+        self.keeper_btn.setFixedHeight(30)
         self.keeper_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(46, 204, 113, 0.6);
@@ -184,7 +228,8 @@ class FullscreenViewer(QWidget):
                 border: 2px solid rgba(46, 204, 113, 0.6);
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 12px;
+                padding: 4px 12px;
             }
             QPushButton:hover {
                 background-color: rgba(46, 204, 113, 0.9);
@@ -198,7 +243,7 @@ class FullscreenViewer(QWidget):
         verdict_container.addWidget(self.keeper_btn)
         
         self.fixer_btn = QPushButton("🟡 Fixer")
-        self.fixer_btn.setFixedHeight(35)
+        self.fixer_btn.setFixedHeight(30)
         self.fixer_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(241, 196, 15, 0.6);
@@ -206,7 +251,8 @@ class FullscreenViewer(QWidget):
                 border: 2px solid rgba(241, 196, 15, 0.6);
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 12px;
+                padding: 4px 12px;
             }
             QPushButton:hover {
                 background-color: rgba(241, 196, 15, 0.9);
@@ -220,7 +266,7 @@ class FullscreenViewer(QWidget):
         verdict_container.addWidget(self.fixer_btn)
         
         self.dud_btn = QPushButton("🔴 Dud")
-        self.dud_btn.setFixedHeight(35)
+        self.dud_btn.setFixedHeight(30)
         self.dud_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(231, 76, 60, 0.6);
@@ -228,7 +274,8 @@ class FullscreenViewer(QWidget):
                 border: 2px solid rgba(231, 76, 60, 0.6);
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 12px;
+                padding: 4px 12px;
             }
             QPushButton:hover {
                 background-color: rgba(231, 76, 60, 0.9);
@@ -241,17 +288,18 @@ class FullscreenViewer(QWidget):
         self.dud_btn.clicked.connect(lambda: self.set_verdict('Dud'))
         verdict_container.addWidget(self.dud_btn)
         
-        review_layout.addLayout(verdict_container)
+        review_controls.addLayout(verdict_container)
         
-        # Fix category dropdown (only visible for Fixer)
-        self.fix_category_widget = QWidget()
-        self.fix_category_container = QHBoxLayout(self.fix_category_widget)
-        self.fix_category_container.setSpacing(8)
-        self.fix_category_widget.setVisible(False)
+        # Fix category dropdown (only visible for Fixer) - wrapped in QWidget
+        self.fix_category_container_widget = QWidget()
+        self.fix_category_container_widget.setVisible(False)
+        fix_category_layout = QHBoxLayout(self.fix_category_container_widget)
+        fix_category_layout.setContentsMargins(0, 0, 0, 0)
+        fix_category_layout.setSpacing(5)
         
-        fix_label = QLabel("Fix Category:")
-        fix_label.setStyleSheet("color: #ccc; font-size: 13px;")
-        self.fix_category_container.addWidget(fix_label)
+        fix_label = QLabel("Category:")
+        fix_label.setStyleSheet("color: #ccc; font-size: 12px;")
+        fix_category_layout.addWidget(fix_label)
         
         self.fix_category_combo = QComboBox()
         self.fix_category_combo.addItems(['', 'Anatomy', 'Background', 'Clothing', 'Lighting', 'Composition', 'Other'])
@@ -261,9 +309,9 @@ class FullscreenViewer(QWidget):
                 color: white;
                 border: 1px solid #555;
                 border-radius: 3px;
-                padding: 5px;
+                padding: 3px 8px;
                 font-size: 12px;
-                min-width: 120px;
+                min-width: 100px;
             }
             QComboBox::drop-down {
                 border: none;
@@ -275,72 +323,51 @@ class FullscreenViewer(QWidget):
             }
         """)
         self.fix_category_combo.currentTextChanged.connect(self.update_fix_category)
-        self.fix_category_container.addWidget(self.fix_category_combo)
-        self.fix_category_container.addStretch()
+        fix_category_layout.addWidget(self.fix_category_combo)
         
-        review_layout.addLayout(self.fix_category_container)
+        review_controls.addWidget(self.fix_category_container_widget)
         
-        # Fix reason text input (only visible for Fixer)
-        self.fix_reason_widget = QWidget()
-        self.fix_reason_container = QVBoxLayout(self.fix_reason_widget)
-        self.fix_reason_container.setSpacing(5)
-        self.fix_reason_widget.setVisible(False)
+        # Fix reason input (only visible for Fixer) - wrapped in QWidget
+        self.fix_reason_container_widget = QWidget()
+        self.fix_reason_container_widget.setVisible(False)
+        fix_reason_layout = QHBoxLayout(self.fix_reason_container_widget)
+        fix_reason_layout.setContentsMargins(0, 0, 0, 0)
+        fix_reason_layout.setSpacing(5)
         
-        reason_label = QLabel("Fix Reason:")
-        reason_label.setStyleSheet("color: #ccc; font-size: 13px;")
-        self.fix_reason_container.addWidget(reason_label)
+        reason_label = QLabel("Reason:")
+        reason_label.setStyleSheet("color: #ccc; font-size: 12px;")
+        fix_reason_layout.addWidget(reason_label)
         
         self.fix_reason_edit = QLineEdit()
-        self.fix_reason_edit.setPlaceholderText("e.g., 'Mangled hands' or 'Poor composition'")
+        self.fix_reason_edit.setPlaceholderText("e.g., 'Mangled hands'")
         self.fix_reason_edit.setStyleSheet("""
             QLineEdit {
                 background-color: rgba(0, 0, 0, 0.7);
                 color: white;
                 border: 1px solid #555;
                 border-radius: 3px;
-                padding: 8px;
+                padding: 3px 8px;
                 font-size: 12px;
+                min-width: 150px;
             }
         """)
         self.fix_reason_edit.textChanged.connect(self.update_fix_reason)
-        self.fix_reason_container.addWidget(self.fix_reason_edit)
+        fix_reason_layout.addWidget(self.fix_reason_edit)
         
-        review_layout.addLayout(self.fix_reason_container)
+        review_controls.addWidget(self.fix_reason_container_widget)
+        review_controls.addStretch()
         
-        review_layout.addStretch()
+        review_layout.addLayout(review_controls)
         
-        # Metadata section
-        metadata_label = QLabel("ℹ️ Metadata")
-        metadata_label.setStyleSheet("color: #FFB74D; font-size: 14px; font-weight: bold;")
-        review_layout.addWidget(metadata_label)
-        
-        self.metadata_display = QTextEdit()
-        self.metadata_display.setReadOnly(True)
-        self.metadata_display.setMaximumHeight(80)
-        self.metadata_display.setStyleSheet("""
-            QTextEdit {
-                background-color: rgba(0, 0, 0, 0.5);
-                color: #888;
-                border: 1px solid #333;
-                border-radius: 4px;
-                padding: 5px;
-                font-size: 11px;
-            }
-        """)
-        self.load_metadata()
-        review_layout.addWidget(self.metadata_display)
-        
-        content_layout.addWidget(review_panel, 1)  # 1 part of the space
-        
-        main_layout.addWidget(content_container)
+        main_layout.addWidget(review_panel)
     
     def load_image(self):
         """Load and display the image"""
         screen = self.screen()
         if screen:
             screen_geometry = screen.geometry()
-            max_width = screen_geometry.width() - 420  # Account for review panel
-            max_height = screen_geometry.height() - 160  # Account for top bar
+            max_width = screen_geometry.width() - 6
+            max_height = screen_geometry.height() - 5
         else:
             max_width = 1080
             max_height = 1920
@@ -380,7 +407,7 @@ class FullscreenViewer(QWidget):
             self.prompt_display.setText(f"Error loading prompt: {e}")
     
     def load_layers(self, layout):
-        """Load layer breakdown from database"""
+        """Load layer breakdown from database with text wrapping"""
         try:
             abs_path = os.path.join(get_images_path(), self.image_path)
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
@@ -399,24 +426,38 @@ class FullscreenViewer(QWidget):
             
             if results:
                 for row in results:
-                    layer_widget = QLabel(f"{row[1]}: {row[2][:50]}{'...' if len(row[2]) > 50 else ''}")
+                    category = row[1]
+                    text = row[2]
+                    
+                    # Truncate text if too long but preserve readability
+                    # if len(text) > 80:
+                    #     text = text[:77] + "..."
+                    
+                    layer_text = f"{category}: {text}"
+                    
+                    # Create a QLabel with word wrapping enabled
+                    layer_widget = QLabel(layer_text)
+                    layer_widget.setWordWrap(True)  # Enable text wrapping
                     layer_widget.setStyleSheet("""
                         color: #aaa;
                         background-color: rgba(0, 0, 0, 0.3);
                         padding: 2px 8px;
                         border-radius: 3px;
-                        font-size: 11px;
+                        font-size: 16px;
                     """)
+                    layer_widget.setMinimumHeight(20)
                     layout.addWidget(layer_widget)
                     self.layer_widgets.append(layer_widget)
             else:
                 no_layers = QLabel("No layer data available. Prompt may not be in colon-delimited format.")
-                no_layers.setStyleSheet("color: #666; font-size: 12px; padding: 5px;")
+                no_layers.setWordWrap(True)
+                no_layers.setStyleSheet("color: #666; font-size: 16px; padding: 5px;")
                 layout.addWidget(no_layers)
                 self.layer_widgets.append(no_layers)
         except Exception as e:
             error_label = QLabel(f"Error loading layers: {e}")
-            error_label.setStyleSheet("color: #666; font-size: 12px; padding: 5px;")
+            error_label.setWordWrap(True)
+            error_label.setStyleSheet("color: #666; font-size: 16px; padding: 5px;")
             layout.addWidget(error_label)
             self.layer_widgets.append(error_label)
     
@@ -493,8 +534,11 @@ class FullscreenViewer(QWidget):
             btn.style().polish(btn)
         
         is_fixer = verdict == 'Fixer'
-        self.fix_category_widget.setVisible(is_fixer)
-        self.fix_reason_widget.setVisible(is_fixer)
+        # Fix: Use the container widgets to set visibility, not the layouts
+        if hasattr(self, 'fix_category_container_widget'):
+            self.fix_category_container_widget.setVisible(is_fixer)
+        if hasattr(self, 'fix_reason_container_widget'):
+            self.fix_reason_container_widget.setVisible(is_fixer)
         
         if not restore_data:
             self.save_review_to_db()

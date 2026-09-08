@@ -200,7 +200,8 @@ def parse_prompt_layers(prompt_text: str) -> List[Dict]:
         layers.append({
             'layer_number': 1,
             'layer_category': 'UNPARSED',
-            'layer_text': prompt_text[:200] + ('...' if len(prompt_text) > 200 else '')
+            #'layer_text': prompt_text[:200] + ('...' if len(prompt_text) > 200 else '')
+            'layer_text': prompt_text
         })
     
     return layers

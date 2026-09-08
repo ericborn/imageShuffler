@@ -67,7 +67,53 @@ class ImageDisplay(QFrame):
         self.hover_timer = QTimer()
         self.hover_timer.setSingleShot(True)
         self.hover_timer.timeout.connect(self.show_overlay)
-        
+
+    def sync_review_state(self):
+        """Sync the review state from database to UI"""
+        try:
+            from image_utils import get_images_path
+            import sqlite3
+            
+            abs_path = os.path.join(get_images_path(), self.image_path)
+            db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT verdict, fix_category, fix_reason
+                FROM image_details WHERE file_path = ?
+            """, (abs_path,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result and result[0]:
+                verdict, fix_category, fix_reason = result
+                
+                # Update verdict buttons
+                self.keeper_btn.setProperty("selected", verdict == 'Keeper')
+                self.fixer_btn.setProperty("selected", verdict == 'Fixer')
+                self.dud_btn.setProperty("selected", verdict == 'Dud')
+                
+                for btn in [self.keeper_btn, self.fixer_btn, self.dud_btn]:
+                    btn.style().unpolish(btn)
+                    btn.style().polish(btn)
+                
+                # Show fix details if needed
+                is_fixer = verdict == 'Fixer'
+                self.fix_category_container.setVisible(is_fixer)
+                self.fix_reason_container.setVisible(is_fixer)
+                
+                if fix_category:
+                    index = self.fix_category_combo.findText(fix_category)
+                    if index >= 0:
+                        self.fix_category_combo.setCurrentIndex(index)
+                
+                if fix_reason:
+                    self.fix_reason_edit.setText(fix_reason)
+                    
+        except Exception as e:
+            print(f"Error syncing review state: {e}")
+
     def setup_overlay(self):
         self.overlay = QWidget(self)
         self.overlay.setStyleSheet("background-color: rgba(0, 0, 0, 0); border-radius: 8px;")
@@ -159,14 +205,17 @@ class ImageDisplay(QFrame):
         bottom_container.addLayout(verdict_container)
         
         # Fix category dropdown (only visible for Fixer)
-        self.fix_category_container = QHBoxLayout()
-        self.fix_category_container.setSpacing(5)
-        #self.fix_category_container.setVisible(False)
-        
+        # Fix category container (wrap in QWidget)
+        self.fix_category_container_widget = QWidget()
+        self.fix_category_container_widget.setVisible(False)
+        fix_category_layout = QHBoxLayout(self.fix_category_container_widget)
+        fix_category_layout.setContentsMargins(0, 0, 0, 0)
+        fix_category_layout.setSpacing(5)
+
         fix_label = QLabel("Fix Category:")
         fix_label.setStyleSheet("color: white; font-size: 11px; background-color: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px;")
-        self.fix_category_container.addWidget(fix_label)
-        
+        fix_category_layout.addWidget(fix_label)
+
         self.fix_category_combo = QComboBox()
         self.fix_category_combo.addItems(['', 'Anatomy', 'Background', 'Clothing', 'Lighting', 'Composition', 'Other'])
         self.fix_category_combo.setStyleSheet("""
@@ -189,19 +238,22 @@ class ImageDisplay(QFrame):
             }
         """)
         self.fix_category_combo.currentTextChanged.connect(self.update_fix_category)
-        self.fix_category_container.addWidget(self.fix_category_combo)
-        
-        bottom_container.addLayout(self.fix_category_container)
-        
-        # Fix reason text input (only visible for Fixer)
-        self.fix_reason_container = QHBoxLayout()
-        self.fix_reason_container.setSpacing(5)
-        #self.fix_reason_container.setVisible(False)
-        
+        fix_category_layout.addWidget(self.fix_category_combo)
+        fix_category_layout.addStretch()
+
+        bottom_container.addWidget(self.fix_category_container_widget)
+
+        # Fix reason container (wrap in QWidget)
+        self.fix_reason_container_widget = QWidget()
+        self.fix_reason_container_widget.setVisible(False)
+        fix_reason_layout = QHBoxLayout(self.fix_reason_container_widget)
+        fix_reason_layout.setContentsMargins(0, 0, 0, 0)
+        fix_reason_layout.setSpacing(5)
+
         reason_label = QLabel("Reason:")
         reason_label.setStyleSheet("color: white; font-size: 11px; background-color: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px;")
-        self.fix_reason_container.addWidget(reason_label)
-        
+        fix_reason_layout.addWidget(reason_label)
+
         self.fix_reason_edit = QLineEdit()
         self.fix_reason_edit.setPlaceholderText("e.g., 'Mangled hands' or 'Poor composition'")
         self.fix_reason_edit.setStyleSheet("""
@@ -215,9 +267,9 @@ class ImageDisplay(QFrame):
             }
         """)
         self.fix_reason_edit.textChanged.connect(self.update_fix_reason)
-        self.fix_reason_container.addWidget(self.fix_reason_edit)
-        
-        bottom_container.addLayout(self.fix_reason_container)
+        fix_reason_layout.addWidget(self.fix_reason_edit)
+
+        bottom_container.addWidget(self.fix_reason_container_widget)
         
         # Bottom row with stats and trash
         actions_container = QHBoxLayout()
@@ -292,8 +344,11 @@ class ImageDisplay(QFrame):
         
         # Show/hide fix details based on verdict
         is_fixer = verdict == 'Fixer'
-        # self.fix_category_container.setVisible(is_fixer)
-        # self.fix_reason_container.setVisible(is_fixer)
+        # Fix: Use the container widgets to set visibility, not the layouts
+        if hasattr(self, 'fix_category_container_widget'):
+            self.fix_category_container_widget.setVisible(is_fixer)
+        if hasattr(self, 'fix_reason_container_widget'):
+            self.fix_reason_container_widget.setVisible(is_fixer)
         
         # Save review to database if image is in database
         self.save_review_to_db()
@@ -409,6 +464,8 @@ class ImageDisplay(QFrame):
         super().leaveEvent(event)
         
     def show_overlay(self):
+        """Show the overlay and sync review state"""
+        self.sync_review_state()  # Sync review state before showing
         self.overlay.setVisible(True)
     
     def resizeEvent(self, event):

@@ -22,13 +22,6 @@ regenerate good images to become great - use thumbs up
         - other?
 
 new features
-change heart/thumb to green/yellow/red, add to slideshow and single image view
-red uninteresting/yellows flawed, good but not great/green great
-yellows should be tagged as regenerate with a reason, face/hands/text/other
-
-need to extract that data from the db, image prompt, seed, model, steps, cfg, etc.
-single image view should display full image path
-
 
 
 reasons for delete
@@ -61,6 +54,8 @@ weight randomization for lora without having to create a separate calls ie lora:
 if/else statement - if breast roll 0, ass must roll 1. breast roll 1, ass can roll 0 or 1
 weighting for specific prompts to make appear more often ie (fishnet(10), dress(5), tshirt(1))
     this is possible with dynamics prompts, use (10::fishnet|5::dress|tshirt)
+not possible to weigh individual wildcard prompts, needs to be done in python
+wearing western outfit vs wearing pirate outfit
 
 ###########
 # 
