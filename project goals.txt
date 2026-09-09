@@ -1,6 +1,19 @@
 project goals
 reframe capture and parse since were moving to sentence prompting from keyword.
 
+pose/action
+    body position
+    arm/hand position
+    leg position
+
+action defines pose, but pose does not define action
+
+prompt test
+1 sentence-raw sentences generated per feature/file
+2 sentence-revised sentences revised with LLM 
+3 keyword-raw random keywords converted to sentences
+4 keyword-revised random keyword sentences revised from LLM
+
 generate better images with fewer bad images
     things to try
         Indicate when an image is a 10/10 - use green
@@ -14,12 +27,18 @@ generate better images with fewer bad images
             - aggregate unmarked tags
             - look for a correlation?
 
-regenerate good images to become great - use thumbs up
-    indicate when an image is good but has flaws
+regenerate good images to become great
         - face
         - hands
         - text
         - other?
+
+new workflow:
+    things to address
+        - auto populate pos/neg prompt from file
+        - generate new prompts if prompt file empty
+        - prompt revisions, needs to make sense from a physical perspective (body positioning or camera not at odds with one another)
+
 
 new features
 
@@ -56,6 +75,10 @@ weighting for specific prompts to make appear more often ie (fishnet(10), dress(
     this is possible with dynamics prompts, use (10::fishnet|5::dress|tshirt)
 not possible to weigh individual wildcard prompts, needs to be done in python
 wearing western outfit vs wearing pirate outfit
+
+need to determine if butt/breasts/asshole/vagina are exposed from character pose (bent over, frontal, etc.), listing large ass exposed asshole changes perspective to rear when it may not be intentional
+
+__porniXL/descriptors__ woman, __porniXL/base__, {0-2$$__porniXL/ethnicity__|__porniXL/skin_tone__,} {0-1$$__porniXL/makeup__,} {0-1$$__porniXL/tats__,} __porniXL/hair_texture__ __porniXL/hair_style__ __porniXL/hair_color_saturation__ __porniXL/hair_color__ hair, __porniXL/eye_color__, wearing {__porniXL/clothing_category__|__porniXL/clothing_lora__,} {0-1$$__porniXL/accessories__,} {0-1$$__porniXL/position__,} {0-1$$__porniXL/setting__|__porniXL/socapunk__,} __porniXL/lighting__, __porniXL/positive_prompt_trimmed__, extreme detail, masterpiece, best quality, 8k, realistic  
 
 ###########
 # 

@@ -17,68 +17,122 @@ import time
 # LM Studio default endpoint (OpenAI-compatible API)
 url = "http://localhost:1234/v1/chat/completions"
 
-# Your prompts
-system_prompt = """You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.
+# paths
+sys_keyword_expander = Path("E:/Images/txt2img-images/data/sys_prompt_keyword_expander.txt")
+sys_sentence_builder = Path("E:/Images/txt2img-images/data/sys_prompt_sentence_builder.txt")
 
-Think step by step about the request before writing the answer:
-- What is the subject and mood?
-- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.
-- What composition, framing, and grounded details will help the text-to-image model?
+wildcards_sentence_dir = Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/advPrompt")
+wildcards_keyword_dir = Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/porniXL")
 
-Then output a single expanded prompt paragraph.
+sentence_file_raw = Path("E:/Images/txt2img-images/data/sentence_prompts_raw.txt")
+sentence_file_revised = Path("E:/Images/txt2img-images/data/sentence_prompts_revised.txt")
 
-Follow these rules strictly:
-1. **Faithfulness First:** Preserve all original subjects, actions, colors, and spatial relationships. Do not add new objects, props, characters, or animals unless the user clearly implies them.
-2. **Practical T2I Structure:** Write a prompt that a text-to-image model can parse cleanly. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.
-3. **Style Planning Stays Internal:** Use your internal reasoning to choose style, medium, framing, and lighting. Do not emit planning tags or wrappers in the visible answer body.
-4. **Text Rendering:** If the user requests visible text, quotes, labels, or typography, specify the exact text clearly and wrap requested words in quotes.
-5. **Avoid Over-Specification:** Do not invent highly specific clothing, colors, materials, or scene details unless the input supports them.
-6. **Structure:** Write one cohesive paragraph after the thinking block. No bullets, JSON, or markdown.
-7. **Respect Existing Detail:** If the user's prompt is already detailed, lightly polish and finalize rather than heavily expanding — preserve their phrasing and direction.
-8. **Respect the Human Form:** Treat depictions of people with dignity. Assume clothing covers genitals and intimate anatomy.
-9. **Preserve User Medium:** When the user explicitly requests a medium (e.g. "photo of", "photograph of", "illustration of", "painting of", "sketch of", "3D render of"), honor it. Do not pivot to a different medium to avoid difficulty — match the user's stated intent.
-"""
+keyword_file_raw = Path("E:/Images/txt2img-images/data/keyword_prompts_raw.txt")
+keyword_file_revised = Path("E:/Images/txt2img-images/data/keywordprompts_revised.txt")
 
-# 1. Set up dynamicprompts
-wildcards_dir = Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/advPrompt")
-raw_file = Path("E:/Images/txt2img-images/data/unformatted_prompts.txt")
-formatted_file = Path("E:/Images/txt2img-images/data/formatted_prompts.txt")
+# System prompts
+with open(sys_keyword_expander, 'r') as f:
+    system_prompt_keyword_expander = f.read()
+    
+with open(sys_sentence_builder, 'r') as f:
+    system_prompt_sentence_builder = f.read()
 
-wm = WildcardManager(wildcards_dir)
-generator = RandomPromptGenerator(wm)
-base_prompts = []
-formatted_prompt = []
+# 1. Set up and build raw sentence wildcards
+wm_sentence = WildcardManager(wildcards_sentence_dir)
+generator_s = RandomPromptGenerator(wm_sentence)
+sentence_prompts_raw = []
+sentence_prompts_revised = []
 
 for i in range(100):
-    ass_selection = ""
-    breast_selection = ""
-    breast_roll = random.randint(0, 2)
-    if (breast_roll == 0):
-        ass_prompt = wm.get_all_values("__03c-ass__")
-        ass_selection = random.sample(ass_prompt, min(1, len(ass_prompt)))[0]
-    if (breast_roll == 1):
-        breast_prompt = wm.get_all_values("__03b-breast__")
-        breast_selection = random.sample(breast_prompt, min(1, len(breast_prompt)))[0]
-    else:
-        ass_prompt = wm.get_all_values("__03c-ass__")
-        ass_selection = random.sample(ass_prompt, min(1, len(ass_prompt)))[0]
-        breast_prompt = wm.get_all_values("__03b-breast__")
-        breast_selection = random.sample(breast_prompt, min(1, len(breast_prompt)))[0]
+    # style of photo
+    full_sentence_template = """__01-medium__. one woman is the primary subject. __03a-base__ woman 
+    __04d-interaction__ She has __03g-hair__. __03m-makeup__. Wearing __03o-clothing_category__ 
+    {0-3$$and __03t-accessories__}. __07a-camera_shot_size__, __07b-camera_height__, 
+    {0-1$$__07c-camera_frame_placement__,} {0-1$$__07d-camera_focus__,}
+    __05a-environment__ __05d-environment_light_combo__"""
 
-    pre_text = "Now expand the following prompt: "
-    base_template = '__03a-base__'
-    bna_template = f' {breast_selection}, {ass_selection}'
-    full_template = pre_text + base_template + bna_template + """. The woman is the primary subject. She has __03g-hair__.
-    wearing __03m-makeup__. Wearing __03o-clothing_category__ {0-3$$and __03t-accessories__}. 
-    {__04a-pose__|__04b-action__} 
-    {__05a-environment__ choose a style of lighting to fit the 
-    environment and describe how its brightness and color affects the 
-    environments materials with reflections or shadows|__05d-environment_light_combo__}. 
-    Select an shot size, camera height and viewing angle that fits with the subject and environment. 
-    Use an appropriate focus and depth of field."""
+    # 3. Generate base prompts
+    sentence_prompts_raw.append((generator_s.generate(full_sentence_template, num_images=1))[0])
 
-    # 3. Generate base prompts (e.g., 20 for batch)
-    base_prompts.append((generator.generate(full_template, num_images=1))[0])
+# Save a backup with all results in one go
+full_sentence_file = sentence_file_raw
+with open(full_sentence_file, 'w', encoding='utf-8') as f:
+    for i, prompt in enumerate(sentence_prompts_raw, 1):
+        f.write(prompt)
+        f.write("\n")
+print(f"Backup saved to: {full_sentence_file.absolute()}")
+
+##############
+# 1. Set up and build raw keyword wildcards
+wm_keyword = WildcardManager(wildcards_keyword_dir)
+generator_s = RandomPromptGenerator(wm_keyword)
+keyword_prompts_raw = []
+keyword_prompts_revised = []
+
+for i in range(100):
+    # style of photo
+    full_keyword_template = """__porniXL/descriptors__ woman, __porniXL/base__, 
+    {0-2$$__porniXL/ethnicity__|__porniXL/skin_tone__,} {0-1$$__porniXL/makeup__,} 
+    {0-1$$__porniXL/tats__,} __porniXL/hair_texture__ __porniXL/hair_style__ 
+    __porniXL/hair_color_saturation__ __porniXL/hair_color__ hair, __porniXL/eye_color__, 
+    wearing {__porniXL/clothing_category__|__porniXL/clothing_lora__,} {0-1$$__porniXL/accessories__,} 
+    {0-1$$__porniXL/position__,} {0-1$$__porniXL/setting__|__porniXL/socapunk__,} __porniXL/lighting__"""
+
+    # 3. Generate base prompts
+    keyword_prompts_raw.append((generator_s.generate(full_keyword_template, num_images=1))[0])
+
+# Save a backup with all results in one go
+full_keyword_file = keyword_file_raw
+with open(full_keyword_file, 'w', encoding='utf-8') as f:
+    for i, prompt in enumerate(keyword_prompts_raw, 1):
+        f.write(prompt)
+        f.write("\n")
+print(f"Backup saved to: {full_keyword_file.absolute()}")
+
+
+
+
+# for i in range(100):
+#     ass_selection = ""
+#     breast_selection = ""
+#     breast_roll = random.randint(0, 2)
+#     if (breast_roll == 0):
+#         ass_prompt = wm.get_all_values("__03c-ass__")
+#         ass_selection = random.sample(ass_prompt, min(1, len(ass_prompt)))[0]
+#     if (breast_roll == 1):
+#         breast_prompt = wm.get_all_values("__03b-breast__")
+#         breast_selection = random.sample(breast_prompt, min(1, len(breast_prompt)))[0]
+#     else:
+#         ass_prompt = wm.get_all_values("__03c-ass__")
+#         ass_selection = random.sample(ass_prompt, min(1, len(ass_prompt)))[0]
+#         breast_prompt = wm.get_all_values("__03b-breast__")
+#         breast_selection = random.sample(breast_prompt, min(1, len(breast_prompt)))[0]
+
+#     #TODO
+#     # text needs to be expanded to additional detail by leading the model
+#     # lifting a barbell loaded with heavy weight
+#     # lifting a barbell loaded with heavy weight, the bar sags from the load.
+#     # she possesses huge breasts and a large ass
+#     # Her breasts possess immense physical mass, but are firm, perky and exposed. She possesses an exaggerated large ass which is disproportionatly large for her slim physique
+#     # create facial expressions dynamic prompt list
+#     # maybe try having the llm create expanded prompt strings for each dynamic
+#     # file itself instead of doing the whole prompt one shot
+    
+#     # style of photo
+#     pre_text = "Now expand the following prompt: "
+#     base_template = '__03a-base__'
+#     bna_template = f' {breast_selection}, {ass_selection}'
+#     full_template = pre_text + base_template + bna_template + """. The woman is the primary subject. She has __03g-hair__.
+#     wearing __03m-makeup__. Wearing __03o-clothing_category__ {0-3$$and __03t-accessories__}. 
+#     {__04a-pose__|__04b-action__} 
+#     {__05a-environment__ choose a style of lighting to fit the 
+#     environment and describe how its brightness and color affects the 
+#     environments materials with reflections or shadows|__05d-environment_light_combo__}. 
+#     Select an shot size, camera height and viewing angle that fits with the subject and environment. 
+#     Use an appropriate focus and depth of field."""
+
+#     # 3. Generate base prompts (e.g., 20 for batch)
+#     base_prompts.append((generator.generate(full_template, num_images=1))[0])
 
 # Function to estimate token count (rough approximation)
 def estimate_tokens(text):
@@ -161,9 +215,9 @@ current_tokens = SYSTEM_PROMPT_TOKENS
 current_conversation = 0
 
 # Open file for writing results incrementally
-output_file = formatted_file
+output_file = sentence_file_revised
 with open(output_file, 'w', encoding='utf-8') as f:
-    for idx, prompt in enumerate(base_prompts):
+    for idx, prompt in enumerate(sentence_prompts_raw):
         prompt_tokens = estimate_tokens(prompt)
         new_message = {"role": "user", "content": prompt}
         
@@ -199,7 +253,7 @@ with open(output_file, 'w', encoding='utf-8') as f:
         conversation_messages.append(new_message)
         current_tokens += prompt_tokens + 50  # Add overhead
         
-        print(f"\n[Prompt {idx + 1}/{len(base_prompts)}]")
+        print(f"\n[Prompt {idx + 1}/{len(sentence_prompts_revised)}]")
         print(f"Current tokens: {current_tokens}/{CONTEXT_WINDOW} (will add ~{MAX_RESPONSE_TOKENS} for response)")
         
         # Send the request with current conversation history
@@ -213,7 +267,7 @@ with open(output_file, 'w', encoding='utf-8') as f:
             current_tokens += response_tokens
             
             # Save to formatted_prompt list
-            formatted_prompt.append(response)
+            sentence_file_revised.append(response)
             
             # Write directly to file
             f.write(response)
@@ -229,24 +283,24 @@ with open(output_file, 'w', encoding='utf-8') as f:
 # Final summary
 print(f"\n{'='*50}")
 print(f"Processing complete!")
-print(f"  Total base prompts generated: {len(base_prompts)}")
+print(f"  Total revised prompts generated: {len(sentence_prompts_revised)}")
 print(f"  Total conversation resets/trims: {current_conversation}")
-print(f"  Total formatted prompts received: {len(formatted_prompt)}")
+print(f"  Total formatted prompts received: {len(sentence_file_revised)}")
 print(f"  Results saved to: {output_file.absolute()}")
 print(f"{'='*50}")
 
 # Save a backup with all results in one go
-full_formatted_file = formatted_file
+full_formatted_file = sentence_file_revised
 with open(full_formatted_file, 'w', encoding='utf-8') as f:
-    for i, prompt in enumerate(formatted_prompt, 1):
+    for i, prompt in enumerate(sentence_prompts_revised, 1):
         f.write(prompt)
         f.write("\n")
 print(f"Backup saved to: {full_formatted_file.absolute()}")
 
 # Save a backup with all results in one go
-full_raw_file = raw_file
-with open(full_raw_file, 'w', encoding='utf-8') as f:
-    for i, prompt in enumerate(base_prompts, 1):
+full_keyword_file = raw_file
+with open(full_keyword_file, 'w', encoding='utf-8') as f:
+    for i, prompt in enumerate(keyword_prompts_revised, 1):
         f.write(prompt)
         f.write("\n")
-print(f"Backup saved to: {full_raw_file.absolute()}")
+print(f"Backup saved to: {full_keyword_file.absolute()}")
