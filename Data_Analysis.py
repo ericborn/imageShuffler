@@ -60,6 +60,29 @@ def extract_loras(json_data):
 
     return ", ".join(lora_entries)
 
+def extract_model_from_workflow(json_data):
+    """Extract lora_name: strength_model pairs from a ComfyUI workflow JSON.
+    
+    Accepts a JSON string, dict, or file path.
+    """
+    # Handle string, dict, or file path input
+    if isinstance(json_data, dict):
+        data = json_data
+    elif isinstance(json_data, str) and json_data.strip().startswith("{"):
+        data = json.loads(json_data)
+    else:
+        with open(json_data, "r") as f:
+            data = json.load(f)
+
+    for node in data.get("nodes", []):
+        named_values = node.get("widgets_values_named", {})
+        model_name = named_values.get("unet_name")
+
+        if model_name is not None:
+            break
+
+    return model_name
+
 def extract_loras_from_prompt(prompt_text: str): #-> Optional[str]:
     """
     Extract LoRA information from the prompt text.
@@ -184,11 +207,21 @@ prompt_info = parser_manager.parse(photo_path)
 full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
 loras = extract_loras_from_prompt(full_prompt)
 
+
 # If no LoRAs found in prompt, try raw_parameters
 if not loras and hasattr(prompt_info, 'raw_parameters') and prompt_info.raw_parameters:
     raw_parameters = prompt_info.raw_parameters.get('workflow', {})
     if raw_parameters:
         loras = extract_loras(raw_parameters)
+
+# Extract checkpoint/model names
+if hasattr(prompt_info, 'models') and prompt_info.models:
+    checkpoint_name = prompt_info.models
+
+if not checkpoint_name and hasattr(prompt_info, 'raw_parameters') and prompt_info.raw_parameters:
+    raw_parameters = prompt_info.raw_parameters.get('workflow', {})
+    if raw_parameters:
+        checkpoint_name = extract_model(raw_parameters)
                 
 #########
 # find tags of single image from filename

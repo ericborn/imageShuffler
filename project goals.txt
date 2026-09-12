@@ -14,6 +14,50 @@ prompt test
 3 keyword-raw random keywords converted to sentences
 4 keyword-revised random keyword sentences revised from LLM
 
+scrap a/b comparisons
+run 30 (15 keyword-revised + 15 sentence-revised) with each model + workflow
+3 workflows, 6 models = 450 images
+run them through rating app and vote
+dont delete any images, indicate if dud and why
+analyze data afterwards
+
+images are way more details, but are they better?
+
+weird lighting/camera angles (look for specific prompting)
+prompts being followed too closely? (look for specific prompting)
+white dicks on humans (look for specific prompting)
+pussys stretched open is gross (look for specific prompting)
+some makeup styles look like clown face (look for specific prompting)
+bodies still turned half front half back (look for specific prompting)
+
+gonzaLomoKrea2_v40-release/%ckpt.unet_name%_%date:yyyy-MM-dd-hhmmss%_%KSamplerMain.seed%
+
+
+size
+    1280x1024
+    1920x1536
+    2560x2048
+
+sampler x2
+    linear/heun_3s
+    exponention/res_2s
+    multistep/res_2m
+
+sampler x1
+    
+
+vae
+    HDR VAE anima
+    wan2.1 upscale
+    wan2.1
+    krea2Real
+
+scheduler
+    ddium_uniform
+    beta
+
+
+
 generate better images with fewer bad images
     things to try
         Indicate when an image is a 10/10 - use green
@@ -41,7 +85,7 @@ new workflow:
 
 
 new features
-
+point program to a folder instead of being hard coded
 
 reasons for delete
 mutation
@@ -276,3 +320,17 @@ Think step by step about the overall picture before writing the answer:
 - What composition, framing, and grounded details will help the scene?
 
 Then output paragraphs detailing all require attributes.
+
+penis lora - Her penis is erect - 1
+lenono - 1.2-1.5
+real cum lora - 1
+k excessive cum - 0.8-0.9
+bondage 0.65-1 (produced text on first test around 0.8)
+femboy 0.8-1
+only anal - 1.0-2.0 - A man's erect penis is visible, penetrating her anus
+fingering 0.6-0.85
+anal finger 0.6-1.0
+brutal dildo
+missionary anal 0.8-1 girl is lying on back, anal sex, anal penetration large penis, legs up, close-up, shot from side in a dynamic angle.
+doggy anal 0.8-1 she is in doggystyle position having anal sex from behind. a big penis is fucking her anal. her thong is pulled aside. her ass is shiny and oiled. POV from behind. dynamic shot from side.
+anal gape 1.0

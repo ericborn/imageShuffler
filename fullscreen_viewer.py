@@ -41,7 +41,7 @@ class FullscreenViewer(QWidget):
         # Top bar with close button
         top_bar = QWidget()
         top_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.8);")
-        top_bar.setFixedHeight(50)
+        top_bar.setFixedHeight(30)
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(20, 0, 20, 0)
         
@@ -54,7 +54,7 @@ class FullscreenViewer(QWidget):
         
         # Close button
         close_btn = QPushButton("✕")
-        close_btn.setFixedSize(40, 40)
+        close_btn.setFixedSize(25, 25)
         close_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(255, 255, 255, 0.1);
@@ -79,7 +79,7 @@ class FullscreenViewer(QWidget):
         image_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         image_container.setStyleSheet("background-color: #0a0a0a;")
         image_layout = QVBoxLayout(image_container)
-        image_layout.setContentsMargins(0, 0, 0, 0)
+        image_layout.setContentsMargins(1, 1, 1, 1)
         image_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.image_label = QLabel()
@@ -366,12 +366,20 @@ class FullscreenViewer(QWidget):
         screen = self.screen()
         if screen:
             screen_geometry = screen.geometry()
-            max_width = screen_geometry.width() - 6
-            max_height = screen_geometry.height() - 5
+            max_width = 1075
+            max_height = 1370
         else:
-            max_width = 1080
-            max_height = 1920
+            max_width = 1075
+            max_height = 1370
         
+        # if screen:
+        #     screen_geometry = screen.geometry()
+        #     max_width = screen_geometry.width() - 6
+        #     max_height = screen_geometry.height() - 5
+        # else:
+        #     max_width = 1080
+        #     max_height = 1920
+
         abs_path = os.path.join(get_images_path(), self.image_path)
         if os.path.exists(abs_path):
             pixmap = QPixmap(abs_path)
@@ -533,7 +541,7 @@ class FullscreenViewer(QWidget):
             btn.style().unpolish(btn)
             btn.style().polish(btn)
         
-        is_fixer = verdict == 'Fixer'
+        is_fixer = verdict in ['Fixer', 'Dud']
         # Fix: Use the container widgets to set visibility, not the layouts
         if hasattr(self, 'fix_category_container_widget'):
             self.fix_category_container_widget.setVisible(is_fixer)

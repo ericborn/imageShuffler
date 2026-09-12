@@ -26,11 +26,11 @@ def init_db():
             positive_prompt TEXT,
             negative_prompt TEXT,
             loras TEXT,  -- comma-separated string
-            seed INTEGER,
+            seed TEXT,
             model TEXT,  -- Checkpoint/model name
-            steps INTEGER,
+            steps TEXT,
             scheduler TEXT,  -- Sampler name
-            cfg REAL,  -- CFG scale
+            cfg TEXT,  -- CFG scale
             generation_strategy TEXT,  -- 'Assembled' or 'Freeform'
             
             -- Review fields (filled during evaluation)
@@ -179,28 +179,47 @@ def parse_prompt_layers(prompt_text: str) -> List[Dict]:
     
     import re
     
-    # Find all category: text pairs
-    pattern = r'([A-Z_]+):\s*([^A-Z_]+?(?=\s*[A-Z_]+:\s*|$))'
-    matches = re.findall(pattern, prompt_text, re.IGNORECASE | re.DOTALL)
+    # Known category labels
+    CATEGORIES = [
+        'Medium', 'Subject', 'Pose/Action', 'Pose', 'Action', 'Appearance',
+        'Clothing', 'Appearance/Clothing', 'Camera/Composition', 'Composition',
+        'Camera', 'Environment', 'Spatial layers', 'Environment/Spatial layers',
+        'Lighting', 'Color', 'Materials'
+    ]
     
-    if not matches:
-        # Try alternative pattern for lowercase categories
-        pattern = r'([a-z_]+):\s*([^a-z_]+?(?=\s*[a-z_]+:\s*|$))'
-        matches = re.findall(pattern, prompt_text, re.IGNORECASE | re.DOTALL)
+    # Build a pattern that matches only these labels followed by a colon.
+    # Sort by length (desc) so "POSE/ACTION" is tried before "POSE".
+    # \b word boundary on each side prevents matching inside other words.
+    label_alternation = '|'.join(
+        re.escape(c) for c in sorted(CATEGORIES, key=len, reverse=True)
+    )
+    pattern = re.compile(
+        rf'(?P<category>\b(?:{label_alternation})\b)\s*:\s*',
+        re.IGNORECASE
+    )
+    
+    matches = list(pattern.finditer(prompt_text))
     
     if matches:
-        for idx, (category, text) in enumerate(matches, 1):
-            layers.append({
-                'layer_number': idx,
-                'layer_category': category.upper(),
-                'layer_text': text.strip()
-            })
-    else:
+        for idx, match in enumerate(matches, 1):
+            start = match.end()
+            end = matches[idx].start() if idx < len(matches) else len(prompt_text)
+            text = prompt_text[start:end].strip()
+            # Collapse internal newlines/multiple spaces into single spaces
+            text = re.sub(r'\s+', ' ', text).strip()
+            
+            if text:
+                layers.append({
+                    'layer_number': len(layers) + 1,
+                    'layer_category': match.group('category').upper(),
+                    'layer_text': text
+                })
+    
+    if not layers:
         # No categories found - return fallback
         layers.append({
             'layer_number': 1,
             'layer_category': 'UNPARSED',
-            #'layer_text': prompt_text[:200] + ('...' if len(prompt_text) > 200 else '')
             'layer_text': prompt_text
         })
     
@@ -227,7 +246,7 @@ def extract_data_from_workflow(json_data, data_type):
             model_name = named_values.get("unet_name")
 
             if model_name is not None:
-                return model_name
+                return model_name.removesuffix(".safetensors")
 
     elif data_type == "lora":
         lora_entries = []
@@ -242,34 +261,6 @@ def extract_data_from_workflow(json_data, data_type):
         return ", ".join(lora_entries)
 
     return model_name
-
-# def extract_loras_from_workflow(json_data):
-#     """Extract lora_name: strength_model pairs from a ComfyUI workflow JSON.
-    
-#     Accepts a JSON string, dict, or file path.
-#     """
-#     import json
-    
-#     # Handle string, dict, or file path input
-#     if isinstance(json_data, dict):
-#         data = json_data
-#     elif isinstance(json_data, str) and json_data.strip().startswith("{"):
-#         data = json.loads(json_data)
-#     else:
-#         with open(json_data, "r") as f:
-#             data = json.load(f)
-
-#     lora_entries = []
-
-#     for node in data.get("nodes", []):
-#         named_values = node.get("widgets_values_named", {})
-#         lora_name = named_values.get("lora_name")
-#         strength = named_values.get("strength_model")
-
-#         if lora_name is not None and strength is not None:
-#             lora_entries.append(f"{lora_name}: {strength}")
-
-#     return ", ".join(lora_entries)
 
 def extract_loras_from_prompt(prompt_text: str) -> Optional[str]:
     """
@@ -318,12 +309,12 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
                 'file_path': image_path,
                 'positive_prompt': 'NO_METADATA',
                 'negative_prompt': 'NO_METADATA',
-                'seed': None,
+                'seed': 'NO_METADATA',
                 'model': 'NO_METADATA',
-                'steps': None,
+                'steps': 'NO_METADATA',
                 'scheduler': 'NO_METADATA',
-                'cfg': None,
-                'loras': None
+                'cfg': 'NO_METADATA',
+                'loras': 'NO_METADATA'
             }
         
         # Extract checkpoint/model names
@@ -342,24 +333,67 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
         
         # Extract sampler information
         sampler_name = ''
-        cfg_scale = None
-        steps = None
-        seed = None
-        
-        if hasattr(prompt_info, 'samplers') and prompt_info.samplers:
-            sampler = prompt_info.samplers[0]
-            sampler_name = sampler.name if hasattr(sampler, 'name') else ''
-            
-            if hasattr(sampler, 'parameters') and sampler.parameters:
-                params = sampler.parameters
-                cfg_scale = params.get('cfg_scale') or params.get('cfg')
-                steps = params.get('steps') or params.get('step')
-                seed = params.get('seed')
-        
-        # Extract LoRAs from prompt
-        full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
-        loras = extract_loras_from_prompt(full_prompt)
+        cfg_scale = ''
+        steps = ''
+        seed = ''
 
+        if hasattr(prompt_info, 'samplers') and prompt_info.samplers:
+            # Initialize lists to collect values from all samplers
+            names_list = []
+            cfg_list = []
+            steps_list = []
+            seed_list = []
+
+            for sampler in prompt_info.samplers:
+                if hasattr(sampler, 'name'):
+                    names_list.append(str(sampler.name))
+                    
+                if hasattr(sampler, 'parameters') and sampler.parameters:
+                    params = sampler.parameters
+                    
+                    # Extract values (default to empty string if not found)
+                    cfg = params.get('cfg_scale') or params.get('cfg') or ''
+                    step = params.get('steps') or params.get('step') or ''
+                    sd = params.get('seed') or ''
+                    
+                    cfg_list.append(str(cfg))
+                    steps_list.append(str(step))
+                    seed_list.append(str(sd))
+            
+            # Convert all collected lists to comma-separated strings
+            sampler_name = ', '.join(names_list)
+            cfg_scale = ', '.join(cfg_list)
+            steps = ', '.join(steps_list)
+            seed = ', '.join(seed_list)
+
+        # positive prompt
+        full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
+        if not full_prompt and hasattr(prompt_info, 'metadata') and prompt_info.metadata:
+            show_text_nodes = prompt_info.metadata.get("ShowText|pysssss", [])
+            if show_text_nodes:
+                text_parts = []
+                for node in show_text_nodes:
+                    text = node.get("text_0")
+                    if text:
+                        text_parts.append(text)
+                full_prompt = "\n".join(text_parts) if text_parts else ''
+        
+        # Negative prompt
+        negative_prompt = ''
+        if hasattr(prompt_info, 'full_negative_prompt') and prompt_info.full_negative_prompt:
+            negative_prompt = prompt_info.full_negative_prompt
+        elif hasattr(prompt_info, 'metadata') and prompt_info.metadata:
+            show_text_nodes = prompt_info.metadata.get("ShowText|pysssss", [])
+            if show_text_nodes:
+                neg_parts = []
+                for node in show_text_nodes:
+                    text = node.get("text_1")
+                    if text:
+                        neg_parts.append(text)
+                negative_prompt = "\n".join(neg_parts) if neg_parts else ''
+
+        # Extract LoRAs from prompt
+        loras = extract_loras_from_prompt(full_prompt)
         if not loras and hasattr(prompt_info, 'raw_parameters') and prompt_info.raw_parameters:
             raw_parameters = prompt_info.raw_parameters.get('workflow', {})
             if raw_parameters:
@@ -368,8 +402,8 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
         return {
             'file_name': Path(image_path).name,
             'file_path': image_path,
-            'positive_prompt': prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else '',
-            'negative_prompt': prompt_info.full_negative_prompt if hasattr(prompt_info, 'full_negative_prompt') else '',
+            'positive_prompt': full_prompt,
+            'negative_prompt': negative_prompt,
             'seed': seed,
             'model': model_name,
             'steps': int(steps) if steps else None,
@@ -385,12 +419,12 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
             'file_path': image_path,
             'positive_prompt': f'ERROR: {str(e)}',
             'negative_prompt': f'ERROR: {str(e)}',
-            'seed': None,
+            'seed': 'ERROR',
             'model': 'ERROR',
-            'steps': None,
+            'steps': 'ERROR',
             'scheduler': 'ERROR',
-            'cfg': None,
-            'loras': None
+            'cfg': 'ERROR',
+            'loras': 'ERROR',
         }
 
 def get_unreviewed_images(limit: int = 50) -> List[Dict]:
