@@ -4,19 +4,23 @@ Created on Mon Jul 20 09:03:15 2026
 
 @author: eric
 
-Columns
-image_id, filename, favorited, favorited_at, times_displayed, liked, prompt,
-prompt_words_selected, good_prompt_words, bad_prompt_words, negative_prompt,
-checkpoint_name, sampler, steps, seed, cfg
+DB:
+image_evaluations.db
 
+Table:
+image_details
 
-image_id, filename, filepath, checkpoint_name, sampler, steps, cfg, seed,
-positive_prompt, negative_prompt, generic_prompt_words, shape_prompt_words,
-setting_prompt_words, lora_prompt_words
+Columns:
+image_id, file_name, file_path, positive_prompt, negative_prompt, loras, seed, 
+model, steps, scheduler, cfg, generation_strategy, verdict, reviewed_at, 
+times_displayed, fix_category, fix_reason, created_at, updated_at
 
-image_favorited, favorited_at, times_displayed, image_liked, image_disliked
+Table:
+layer_evaluations
 
-regeneration_reason
+Columns:
+evaluation_id, image_id, layer_number, layer_category, layer_text, 
+execution_status, conflict_type, is_dominant, created_at, updated_at
 
 """
 
@@ -131,13 +135,13 @@ conn.close()
 ##########
 
 # Connect to the database
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
 
 column_name = 'bad_prompt_words'
 # Add the new column
 try:
-    cursor.execute(f'ALTER TABLE favorites ADD COLUMN {column_name} TEXT')
+    cursor.execute(f'ALTER TABLE image_details ADD COLUMN {column_name} TEXT')
     conn.commit()
     print(f"Column '{column_name}' added successfully!")
 except sqlite3.OperationalError as e:
@@ -152,14 +156,14 @@ conn.close()
 ##########
 # Favorite count
 ##########
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
 
 # Get the count
-cursor.execute("SELECT COUNT(*) FROM favorites WHERE favorited = 1")
+cursor.execute("SELECT COUNT(*) FROM image_details WHERE verdict = 'Keeper'")
 favorite = cursor.fetchone()[0]
 
-cursor.execute("SELECT COUNT(*) FROM favorites")
+cursor.execute("SELECT COUNT(*) FROM image_details")
 total = cursor.fetchone()[0]
 
 print(f"Number of favorited images: {favorite}/{total}")
@@ -168,12 +172,12 @@ print(f"Number of favorited images: {favorite}/{total}")
 conn.close()
 
 ##########
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
 
-#cursor.execute("SELECT * FROM favorites where favorited = 1 limit 1")
-#cursor.execute("SELECT * FROM favorites where image_id = '00102-3272213897.png'")
-cursor.execute("SELECT * FROM favorites limit 100")
+#cursor.execute("SELECT * FROM image_details WHERE verdict = 'Keeper' limit 1")
+#cursor.execute("SELECT * FROM image_details where image_id = '00102-3272213897.png'")
+cursor.execute("SELECT * FROM image_details limit 100")
 
 rows = cursor.fetchall()
 image_path_list = []
@@ -186,14 +190,13 @@ for row in rows:
 conn.close()
 
 #########
-# extract loras
+# extract data from raw params
 #########
 
-# lora in raw params
-#photo_path = "E:\\Images\\txt2img-images\\static\\comfy\\Krea2_RedMix_00020_.png"
 #photo_path = "c:\\test\\db330_00046_.png" 
 #photo_path = "c:\\test\\test01_00003_.png"
-photo_path = "c:\\test\\gonzo_00012_.png" 
+#photo_path = "c:\\test\\gonzo_00012_.png" # keyword prompt
+photo_path = "c:\\test\\db330_00101_.png" # sentence prompt
 
 # lora in full prompt
 #photo_path = "E:\\Images\\txt2img-images\\static\\2026-08-24\\00178-808625428.png"
@@ -203,28 +206,49 @@ parser_manager = ParserManager()
 
 # Initialize empty list to store parsed data
 parsed_data = []
-
 prompt_info = parser_manager.parse(photo_path)
+
+# exploration
 prompt_info.metadata["ShowText|pysssss"].widgets_values #.widgets_values_named
 prompt_info.raw_parameters["workflow"]
 
-#prompt_info.metadata["PrimitiveStringMultiline"]
+# samplers
 prompt_info.samplers[0].name
 
 data = json.loads(prompt_info.raw_parameters["workflow"])
-data.get("nodes")
-data["nodes"]['type']
-[-1]["widgets_values"][0][0]
 
+# used to select the prompt when its burried inShowText|pysssss
+# show all in nodes
+data.get("nodes")
+
+# walk to specific ShowText|pysssss
 data["nodes"][-1]["widgets_values"][0][0]
 
 for node in data.get("nodes", []):
     if node['type'] == 'ShowText|pysssss':
-        print(node["widgets_values"][0][0])
-    
-    named_values = node.get("widgets_values", {})
-    model_name = named_values.get("ShowText|pysssss")
-                
+        #print(node["widgets_values"][0][0])
+        prompt_widgets_values = node.get("widgets_values", {})
+        
+extracted_prompt = prompt_widgets_values[0][0]
+ 
+# used to find the txt file the prompt was generated from
+data["nodes"] == 'LoadTextFile'
+
+for node in data.get("nodes", []):
+    if node['type'] == 'LoadTextFile':
+        #print(node["widgets_values"][1])#[0][0])
+        text_file_values = node.get("widgets_values", {})   
+
+extracted_generation_strategy = text_file_values[1]
+# keywordprompts_revised.txt
+# sentence_prompts_revised.txt
+
+#############
+# Words to remove/rework from prompts
+#############
+
+#
+
 #########
 # find tags of single image from filename
 #########
@@ -232,10 +256,10 @@ for node in data.get("nodes", []):
 #photo_path = "E:\\Images\\txt2img-images\\static\\comfy\\Krea2_RedMix_00020_.png"
 
 conn = sqlite3.connect('image_evaluations.db')
-#conn = sqlite3.connect('favorites.db')
+#conn = sqlite3.connect('image_evaluations.db')
 
 cursor = conn.cursor()
-cursor.execute("SELECT * FROM favorites where favorited = 1 limit 1")
+cursor.execute("SELECT * FROM image_details WHERE verdict = 'Keeper' limit 1")
 photo_path = cursor.fetchone()[1]
 conn.close()
 
@@ -271,10 +295,10 @@ prompt_list = [item for item in prompt_list if item]
 ######
 # find selected keywords
 ######
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
-#cursor.execute("SELECT * FROM favorites where image_id = '00102-3272213897.png' limit 1")
-cursor.execute("SELECT * FROM favorites limit 1")
+#cursor.execute("SELECT * FROM image_details where image_id = '00102-3272213897.png' limit 1")
+cursor.execute("SELECT * FROM image_details limit 1")
 full_prompt = cursor.fetchone()[7]
 selected_prompt_words = cursor.fetchone()[8]
 conn.close()
@@ -284,15 +308,12 @@ print(selected_prompt_words)
 ######
 # update column
 ######
-conn = sqlite3.connect('favorites.db')
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
 
 # Make sure autocommit is enabled or commit manually
-cursor.execute("UPDATE favorites SET liked = 0")
-conn.commit()  # DON'T FORGET THIS!
-
-# Or use autocommit mode (sqlite3 3.12+)
-# conn = sqlite3.connect('favorites.db', isolation_level=None)
+cursor.execute("UPDATE image_details SET verdict = 'Keeper'")
+conn.commit()
 
 conn.close()
 
@@ -432,11 +453,11 @@ shape_words = ['stunning woman', 'beautiful woman', 'sexy woman',
                'wide butt', 'wide hips', 'medium breasts', 'medium butt',
                'bursting breasts']
 
-# load all favorited images
-conn = sqlite3.connect('favorites.db')
+# load all keeper images
+conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
 
-cursor.execute("SELECT * FROM favorites where favorited = 1")
+cursor.execute("SELECT * FROM image_details WHERE verdict = 'Keeper'")
 rows = cursor.fetchall()
 image_path_list = []
 

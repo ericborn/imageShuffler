@@ -31,7 +31,7 @@ def init_db():
             steps TEXT,
             scheduler TEXT,  -- Sampler name
             cfg TEXT,  -- CFG scale
-            generation_strategy TEXT,  -- 'Assembled' or 'Freeform'
+            generation_strategy TEXT,  -- 'Keyword' or 'Sentence'
             
             -- Review fields (filled during evaluation)
             verdict TEXT,  -- 'Keeper', 'Fixer', or 'Dud'
@@ -256,6 +256,18 @@ def extract_data_from_workflow(json_data, data_type):
                 if prompt is not None:
                     return prompt
 
+    elif data_type == "generation_strategy":
+        for node in data.get("nodes", []):
+            if node['type'] == 'LoadTextFile':
+                text_file_values = node.get("widgets_values", {}) 
+                if text_file_values is not None:
+                    import re
+                    refined_strat = re.search(r'(keyword|sentence)', text_file_values[1])
+                    if refined_strat is not None: 
+                        return refined_strat.group(1) 
+                    else:
+                        return 'Unknown'
+
     elif data_type == "lora":
         lora_entries = []
         for node in data.get("nodes", []):
@@ -339,6 +351,7 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
             if raw_parameters:
                 model_name = extract_data_from_workflow(raw_parameters, "model")
                 full_prompt = extract_data_from_workflow(raw_parameters, "prompt")
+                generation_strategy = extract_data_from_workflow(raw_parameters, "generation_strategy")
         
         # Extract sampler information
         sampler_name = ''
@@ -419,7 +432,8 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
             'steps': int(steps) if steps else None,
             'scheduler': sampler_name,
             'cfg': float(cfg_scale) if cfg_scale else None,
-            'loras': loras if loras else None
+            'loras': loras if loras else None,
+            'generation_strategy': generation_strategy if generation_strategy else 'Unknown'
         }
         
     except Exception as e:
@@ -435,6 +449,7 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
             'scheduler': 'ERROR',
             'cfg': 'ERROR',
             'loras': 'ERROR',
+            'generation_strategy': 'ERROR',
         }
 
 def get_unreviewed_images(limit: int = 50) -> List[Dict]:
@@ -521,12 +536,29 @@ def mark_deleted(image_path):
     cursor = conn.cursor()
     image_id = os.path.basename(image_path)
 
-    cursor.execute("""
-        UPDATE image_details 
-        SET verdict = 'Dud', 
-            fix_category = 'Deleted', 
-            fix_reason = 'Image deleted by user' 
-        WHERE image_id = ?""", (image_id,))
+    # Check if a fix_reason already exists for this image
+    cursor.execute(
+        "SELECT fix_reason FROM image_details WHERE image_id = ?",
+        (image_id,)
+    )
+    row = cursor.fetchone()
+
+    # Only set the default reason if none exists (or it's empty/null)
+    if row is None or not row[0]:
+        cursor.execute("""
+            UPDATE image_details 
+            SET verdict = 'Dud', 
+                fix_category = 'Deleted', 
+                fix_reason = 'Image deleted by user' 
+            WHERE image_id = ?""", (image_id,))
+    else:
+        # Preserve existing fix_reason, only update verdict and fix_category
+        cursor.execute("""
+            UPDATE image_details 
+            SET verdict = 'Dud', 
+                fix_category = 'Deleted' 
+            WHERE image_id = ?""", (image_id,))
+
     conn.commit()
     conn.close()
 
