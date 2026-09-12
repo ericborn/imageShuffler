@@ -190,7 +190,10 @@ conn.close()
 #########
 
 # lora in raw params
-photo_path = "E:\\Images\\txt2img-images\\static\\comfy\\Krea2_RedMix_00020_.png"
+#photo_path = "E:\\Images\\txt2img-images\\static\\comfy\\Krea2_RedMix_00020_.png"
+#photo_path = "c:\\test\\db330_00046_.png" 
+#photo_path = "c:\\test\\test01_00003_.png"
+photo_path = "c:\\test\\gonzo_00012_.png" 
 
 # lora in full prompt
 #photo_path = "E:\\Images\\txt2img-images\\static\\2026-08-24\\00178-808625428.png"
@@ -202,26 +205,25 @@ parser_manager = ParserManager()
 parsed_data = []
 
 prompt_info = parser_manager.parse(photo_path)
+prompt_info.metadata["ShowText|pysssss"].widgets_values #.widgets_values_named
+prompt_info.raw_parameters["workflow"]
 
-# Extract LoRAs from prompt
-full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
-loras = extract_loras_from_prompt(full_prompt)
+#prompt_info.metadata["PrimitiveStringMultiline"]
+prompt_info.samplers[0].name
 
+data = json.loads(prompt_info.raw_parameters["workflow"])
+data.get("nodes")
+data["nodes"]['type']
+[-1]["widgets_values"][0][0]
 
-# If no LoRAs found in prompt, try raw_parameters
-if not loras and hasattr(prompt_info, 'raw_parameters') and prompt_info.raw_parameters:
-    raw_parameters = prompt_info.raw_parameters.get('workflow', {})
-    if raw_parameters:
-        loras = extract_loras(raw_parameters)
+data["nodes"][-1]["widgets_values"][0][0]
 
-# Extract checkpoint/model names
-if hasattr(prompt_info, 'models') and prompt_info.models:
-    checkpoint_name = prompt_info.models
-
-if not checkpoint_name and hasattr(prompt_info, 'raw_parameters') and prompt_info.raw_parameters:
-    raw_parameters = prompt_info.raw_parameters.get('workflow', {})
-    if raw_parameters:
-        checkpoint_name = extract_model(raw_parameters)
+for node in data.get("nodes", []):
+    if node['type'] == 'ShowText|pysssss':
+        print(node["widgets_values"][0][0])
+    
+    named_values = node.get("widgets_values", {})
+    model_name = named_values.get("ShowText|pysssss")
                 
 #########
 # find tags of single image from filename

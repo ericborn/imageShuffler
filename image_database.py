@@ -248,6 +248,14 @@ def extract_data_from_workflow(json_data, data_type):
             if model_name is not None:
                 return model_name.removesuffix(".safetensors")
 
+    elif data_type == "prompt":
+        for node in data.get("nodes", []):
+            if node['type'] == 'ShowText|pysssss':
+                prompt = (node["widgets_values"][0][0])
+
+                if prompt is not None:
+                    return prompt
+
     elif data_type == "lora":
         lora_entries = []
         for node in data.get("nodes", []):
@@ -330,6 +338,7 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
             raw_parameters = prompt_info.raw_parameters.get('workflow', {})
             if raw_parameters:
                 model_name = extract_data_from_workflow(raw_parameters, "model")
+                full_prompt = extract_data_from_workflow(raw_parameters, "prompt")
         
         # Extract sampler information
         sampler_name = ''
@@ -367,16 +376,17 @@ def extract_metadata_from_image(image_path: str, parser_manager: ParserManager) 
             seed = ', '.join(seed_list)
 
         # positive prompt
-        full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
-        if not full_prompt and hasattr(prompt_info, 'metadata') and prompt_info.metadata:
-            show_text_nodes = prompt_info.metadata.get("ShowText|pysssss", [])
-            if show_text_nodes:
-                text_parts = []
-                for node in show_text_nodes:
-                    text = node.get("text_0")
-                    if text:
-                        text_parts.append(text)
-                full_prompt = "\n".join(text_parts) if text_parts else ''
+        if not full_prompt:
+            full_prompt = prompt_info.full_prompt if hasattr(prompt_info, 'full_prompt') else ''
+            if not full_prompt and hasattr(prompt_info, 'metadata') and prompt_info.metadata:
+                show_text_nodes = prompt_info.metadata.get("ShowText|pysssss", [])
+                if show_text_nodes:
+                    text_parts = []
+                    for node in show_text_nodes:
+                        text = node.get("text_0")
+                        if text:
+                            text_parts.append(text)
+                    full_prompt = "\n".join(text_parts) if text_parts else ''
         
         # Negative prompt
         negative_prompt = ''
