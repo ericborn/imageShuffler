@@ -178,6 +178,12 @@ UPDATE image_details
 SET file_path = REPLACE(file_path, '\\', '/')
 WHERE file_path LIKE '%\\%';
 """
+
+# query = """
+# UPDATE image_details
+# SET times_displayed = 1;
+# """
+
 cursor.execute(query)
 conn.commit()
 conn.close()

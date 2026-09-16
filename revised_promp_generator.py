@@ -14,17 +14,26 @@ from dataclasses import dataclass
 # CONFIGURATION
 # ============================================================================
 
+# This must be the *first* convenience API interaction
+lms.configure_default_client("localhost:1234")
+
+# Now this will use the explicitly configured client
+with lms.Client() as client:
+    model = client.llm.model()
+    
 @dataclass
 class PathConfig:
     """Configuration for file paths."""
+    sys_sentence_generator: Path
     sys_sentence_refiner: Path
-    sys_sentence_builder: Path
     wildcards_sentence_dir: Path
     wildcards_keyword_dir: Path
     sentence_file_raw: Path
-    sentence_file_revised: Path
+    sentence_file_generated: Path
+    sentence_file_refined: Path
     keyword_file_raw: Path
-    keyword_file_revised: Path
+    keyword_file_generated: Path
+    keyword_file_refined: Path
 
 @dataclass
 class ProcessingConfig:
@@ -150,9 +159,9 @@ def process_prompts_isolated(
         progress_label: Optional label shown in progress output
 
     Returns:
-        List of revised responses, one per input prompt, in order
+        List of generated responses, one per input prompt, in order
     """
-    revised_prompts: List[str] = []
+    generated_prompts: List[str] = []
     total = len(prompts)
 
     if verbose:
@@ -167,21 +176,21 @@ def process_prompts_isolated(
                 user_prompt=prompt,
                 split_pattern=split_pattern,
             )
-            revised_prompts.append(cleaned)
+            generated_prompts.append(cleaned)
             if verbose:
                 preview = cleaned[:60].replace("\n", " ")
                 print(f"  [{i}/{total}] {preview}...")
         except Exception as e:
             # Preserve list alignment — store an error marker so downstream
             # indices still map to the original prompt list.
-            revised_prompts.append(f"[ERROR processing prompt {i}: {e}]")
+            generated_prompts.append(f"[ERROR processing prompt {i}: {e}]")
             if verbose:
                 print(f"  [{i}/{total}] ERROR: {e}")
 
     if verbose:
         print(f"Done. Processed {total} prompts.")
 
-    return revised_prompts
+    return generated_prompts
 
 # ============================================================================
 # HIGH-LEVEL PIPELINE
@@ -200,7 +209,7 @@ def run_processing_pipeline(
     Complete pipeline: load prompts, process each in its own context, save results.
 
     Returns:
-        List of revised prompts
+        List of generated prompts
     """
     if verbose:
         print(f"\nLoading prompts from: {raw_file_path}")
@@ -210,7 +219,7 @@ def run_processing_pipeline(
 
     model = lms.llm()
 
-    revised = process_prompts_isolated(
+    generated = process_prompts_isolated(
         model=model,
         system_prompt=system_prompt,
         prompts=prompts,
@@ -219,57 +228,77 @@ def run_processing_pipeline(
         progress_label=progress_label,
     )
 
-    save_prompts_to_file(revised, output_file_path)
-    return revised
+    save_prompts_to_file(generated, output_file_path)
+    return generated
 
 # ============================================================================
 # MAIN
 # ============================================================================
 
-paths = PathConfig(
-    sys_sentence_refiner=Path("E:/Images/txt2img-images/data/sys_prompt_sentence_refiner.txt"),
-    sys_sentence_builder=Path("E:/Images/txt2img-images/data/sys_prompt_sentence_builder.txt"),
-    wildcards_sentence_dir=Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/advPrompt"),
-    wildcards_keyword_dir=Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/keyword"),
-    sentence_file_raw=Path("E:/Images/txt2img-images/data/sentence_prompts_raw.txt"),
-    sentence_file_revised=Path("E:/Images/txt2img-images/data/sentence_prompts_revised.txt"),
-    keyword_file_raw=Path("E:/Images/txt2img-images/data/keyword_prompts_raw.txt"),
-    keyword_file_revised=Path("E:/Images/txt2img-images/data/keywordprompts_revised.txt"),
-)
+def main():
+    paths = PathConfig(
+        sys_sentence_generator=Path("E:/Images/txt2img-images/data/sys_prompt_sentence_generator.txt"),
+        sys_sentence_refiner=Path("E:/Images/txt2img-images/data/sys_prompt_final_refiner.txt"),
+        wildcards_sentence_dir=Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/advPrompt"),
+        wildcards_keyword_dir=Path("C:/stable-diffusion-webui-forge/extensions/sd-dynamic-prompts/wildcards/keyword"),
+        sentence_file_raw=Path("E:/Images/txt2img-images/data/sentence_prompts_raw.txt"),
+        sentence_file_generated=Path("E:/Images/txt2img-images/data/sentence_prompts_generated.txt"),        
+        sentence_file_refined=Path("E:/Images/txt2img-images/data/sentence_prompts_refined.txt"),
+        keyword_file_raw=Path("E:/Images/txt2img-images/data/keyword_prompts_raw.txt"),
+        keyword_file_generated=Path("E:/Images/txt2img-images/data/keywordprompts_generated.txt"),        
+        keyword_file_refined=Path("E:/Images/txt2img-images/data/keywordprompts_refined.txt"),
+    )
 
-config = ProcessingConfig(
-    split_pattern=r"__LM_STUDIO_INTERNAL_LSEP_SYNTHETIC_REASONING_END_[a-fA-F0-9]+__",
-    delimiter="Medium: ",
-    verbose=True,
-)
+    config = ProcessingConfig(
+        split_pattern=r"__LM_STUDIO_INTERNAL_LSEP_SYNTHETIC_REASONING_END_[a-fA-F0-9]+__",
+        delimiter="Medium: ",
+        verbose=True,
+    )
 
-# --- Process keyword prompts ---
-print("\n" + "=" * 60)
-print("PROCESSING KEYWORD PROMPTS")
-print("=" * 60)
-keyword_revised = run_processing_pipeline(
-    raw_file_path=paths.keyword_file_raw,
-    output_file_path=paths.keyword_file_revised,
-    system_prompt_path=paths.sys_sentence_refiner,
-    split_pattern=config.split_pattern,
-    delimiter=config.delimiter,
-    verbose=config.verbose,
-    progress_label="keyword",
-)
+    # --- Generate keyword prompts ---
+    print("\n" + "=" * 60)
+    print("PROCESSING KEYWORD PROMPTS")
+    print("=" * 60)
+    keyword_generated = run_processing_pipeline(
+        raw_file_path=paths.keyword_file_raw,
+        output_file_path=paths.keyword_file_generated,
+        system_prompt_path=paths.sys_sentence_generator,
+        split_pattern=config.split_pattern,
+        delimiter=config.delimiter,
+        verbose=config.verbose,
+        progress_label="keyword generator",
+    )
 
-# --- Process sentence prompts ---
-print("\n" + "=" * 60)
-print("PROCESSING SENTENCE PROMPTS")
-print("=" * 60)
-sentence_revised = run_processing_pipeline(
-    raw_file_path=paths.sentence_file_raw,
-    output_file_path=paths.sentence_file_revised,
-    system_prompt_path=paths.sys_sentence_refiner,
-    split_pattern=config.split_pattern,
-    delimiter=config.delimiter,
-    verbose=config.verbose,
-    progress_label="sentence",
-)
+    # --- Generate sentence prompts ---
+    print("\n" + "=" * 60)
+    print("PROCESSING SENTENCE PROMPTS")
+    print("=" * 60)
+    sentence_generated = run_processing_pipeline(
+        raw_file_path=paths.sentence_file_raw,
+        output_file_path=paths.sentence_file_generated,
+        system_prompt_path=paths.sys_sentence_generator,
+        split_pattern=config.split_pattern,
+        delimiter=config.delimiter,
+        verbose=config.verbose,
+        progress_label="sentence generator",
+    )
 
-print(f"\nAll done. Keyword prompts: {len(keyword_revised)}, "
-      f"Sentence prompts: {len(sentence_revised)}")
+    print(f"\nAll done. Keyword prompts: {len(keyword_generated)}, "
+          f"Sentence prompts: {len(sentence_generated)}")
+
+
+    # --- Refine keyword prompts ---
+    print("\n" + "=" * 60)
+    print("PROCESSING KEYWORD PROMPTS")
+    print("=" * 60)
+    keyword_refined = run_processing_pipeline(
+        raw_file_path=paths.keyword_file_generated,
+        output_file_path=paths.keyword_file_refined,
+        system_prompt_path=paths.sys_sentence_refiner,
+        split_pattern=config.split_pattern,
+        delimiter=config.delimiter,
+        verbose=config.verbose,
+        progress_label="keyword refiner",
+    )
+
+    print(f"\nAll done. Keyword prompts: {len(keyword_refined)}")

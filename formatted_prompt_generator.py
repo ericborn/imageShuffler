@@ -33,48 +33,48 @@ path_keyword_file_revised = Path("E:/Images/txt2img-images/data/keywordprompts_r
 # only run to load prompts from file
 #########
 # load prompts from file if already generated
-with open(path_sentence_file_raw, 'r') as f:
-    sentence_prompts_string = f.read()
+# with open(path_sentence_file_raw, 'r') as f:
+#     sentence_prompts_string = f.read()
     
-with open(path_keyword_file_raw, 'r') as f:
-    keyword_prompts_string = f.read()
+# with open(path_keyword_file_raw, 'r') as f:
+#     keyword_prompts_string = f.read()
 
-# sentence prompts cleanup
-# split single string on starting category for Medium:
-sentence_prompts_parts = re.split("(Medium: )", sentence_prompts_string)
+# # sentence prompts cleanup
+# # split single string on starting category for Medium:
+# sentence_prompts_parts = re.split("(Medium: )", sentence_prompts_string)
 
-sentence_prompts_raw = []
-sentence_prompts_revised = []
-start_idx = 1 if sentence_prompts_parts[0].strip() == "" else 0
+# sentence_prompts_raw = []
+# sentence_prompts_revised = []
+# start_idx = 1 if sentence_prompts_parts[0].strip() == "" else 0
 
-for i in range(start_idx, len(sentence_prompts_parts), 2):
-    # Check if there is a matching text block after the delimiter
-    if i + 1 < len(sentence_prompts_parts):
-        sentence_prompts_raw.append(sentence_prompts_parts[i] + sentence_prompts_parts[i + 1])
-    else:
-        sentence_prompts_raw.append(sentence_prompts_parts[i])
+# for i in range(start_idx, len(sentence_prompts_parts), 2):
+#     # Check if there is a matching text block after the delimiter
+#     if i + 1 < len(sentence_prompts_parts):
+#         sentence_prompts_raw.append(sentence_prompts_parts[i] + sentence_prompts_parts[i + 1])
+#     else:
+#         sentence_prompts_raw.append(sentence_prompts_parts[i])
 
-# remove leading spaces before each category
-sentence_prompts_raw = [re.sub(r"\n +", "\n", block) for block in sentence_prompts_raw]
+# # remove leading spaces before each category
+# sentence_prompts_raw = [re.sub(r"\n +", "\n", block) for block in sentence_prompts_raw]
 
-####
-# keyword prompts cleanup
-# split single string on starting category for Medium:
-keyword_prompts_parts = re.split("(Medium: )", keyword_prompts_string)
+# ####
+# # keyword prompts cleanup
+# # split single string on starting category for Medium:
+# keyword_prompts_parts = re.split("(Medium: )", keyword_prompts_string)
 
-keyword_prompts_raw = []
-keyword_prompts_revised = []
-start_idx = 1 if keyword_prompts_parts[0].strip() == "" else 0
+# keyword_prompts_raw = []
+# keyword_prompts_revised = []
+# start_idx = 1 if keyword_prompts_parts[0].strip() == "" else 0
 
-for i in range(start_idx, len(keyword_prompts_parts), 2):
-    # Check if there is a matching text block after the delimiter
-    if i + 1 < len(keyword_prompts_parts):
-        keyword_prompts_raw.append(keyword_prompts_parts[i] + keyword_prompts_parts[i + 1])
-    else:
-        keyword_prompts_raw.append(keyword_prompts_parts[i])
+# for i in range(start_idx, len(keyword_prompts_parts), 2):
+#     # Check if there is a matching text block after the delimiter
+#     if i + 1 < len(keyword_prompts_parts):
+#         keyword_prompts_raw.append(keyword_prompts_parts[i] + keyword_prompts_parts[i + 1])
+#     else:
+#         keyword_prompts_raw.append(keyword_prompts_parts[i])
 
-# remove leading spaces before each category
-keyword_prompts_raw = [re.sub(r"\n +", "\n", block) for block in keyword_prompts_raw]
+# # remove leading spaces before each category
+# keyword_prompts_raw = [re.sub(r"\n +", "\n", block) for block in keyword_prompts_raw]
 
 #########
 # only run to generate new prompts
@@ -133,7 +133,7 @@ generator_k = RandomPromptGenerator(wm_keyword)
 keyword_prompts_raw = []
 keyword_prompts_revised = []
 
-for i in range(100):
+for i in range(1000):
     frame_roll = random.randint(1,100)
     #print(frame_roll)
     if (frame_roll > 90):
@@ -175,7 +175,14 @@ for i in range(100):
     keyword_prompts_raw.append((generator_k.generate(full_keyword_template, num_images=1))[0])
 
 # test specific wildcard list
+# test_string = """
+# {{many layered|multiple layered} {thin|thick|delicate} {1-3$$, $$pearl|diamond|crystal|gold|silver|jade|skull|lapis lazuli|turquoise|sapphire|amethyst|aquamarine|emerald|ruby|opal|tanzanite|garnet|peridot} necklaces|{thin|thick|delicate} {pearl|diamond|crystal|gold|silver|jade|skull|lapis lazuli|turquoise|sapphire|amethyst|aquamarine|emerald|ruby|opal|tanzanite|garnet|peridot} necklace}
+# """
+# print(generator_k.generate(test_string, num_images=1))
 #print(generator_k.generate("__hair_texture__", num_images=1))
+
+# layered necklaces with pearls, gold and diamonds
+
 
 # Save a backup with all results in one go
 full_keyword_file = path_keyword_file_raw
