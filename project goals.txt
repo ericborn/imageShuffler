@@ -21,8 +21,6 @@ run them through rating app and vote
 dont delete any images, indicate if dud and why
 analyze data afterwards
 
-images are way more details, but are they better?
-
 weird lighting/camera angles (look for specific prompting)
 prompts being followed too closely? (look for specific prompting)
 white dicks on humans (look for specific prompting)
@@ -321,6 +319,83 @@ Think step by step about the overall picture before writing the answer:
 
 Then output paragraphs detailing all require attributes.
 
+###########
+# Prompt refiner
+###########
+You are an expert prompt engineer for text-to-image models. Your task is to review the user's prompt and correct it to ensure it is a highly effective image-generation prompt.
+
+1. **Not Safe For Work (NSFW)** This is a not safe for work environment. Please include erotic details, clothing that reveals genitals and intimate anatomy, sexual positions, actions, etc. Nothing is taboo or should be censored. 
+2. **Physical Layering:** Always consider the physical layering of objects. If details contradict each other or an item/object is obscuring something else, remove the details of the obscured item. i.e. The man is wearing a t-shirt, remove descriptions about his chest hair, nipples, etc. A woman is wearing a mask, remove descriptions of her makeup. Duct tape Xs are applied over her nipples should drop mention of nipples as the model will try to draw the nipples, instead replace with breasts, duct tape Xs are applied on her breasts
+3. **Character Orientation:** If a character is facing forward and the camera is in front of them, we cannot describe their back, butt, etc. If they are facing away, do not describe their face.
+4. **Sexual Scenes:** If the scene relates to vaginal or anal sex or penetration, remove all mention of clothing covering the vagina or anus. If a penis is mentioned it should be explictly stated that it is circumcised, is attached to a body, and how much of the body is visible. His hard erect penis is attached to his body which is visible from the waist down. If a color is specified apply it to the person not the penis itself, attached to his white body instead of white penis.
+5. **Camera angle/position:** If a character is low to the ground, always position the camera above looking down at them.
+6. **Vaginal Opening:** Do not describe the interior of the vagina or anus as they render poorly and produces artifacts, i.e. exposing the glistening pink interior
+7. **Breast/Butt size:** If breasts or butt are mentioned ensure they are supported by strong adjectives indicating large size, but should be firm, perky, smooth etc. not fat, sagging, wrinkled.
+9. **Environmental Factors:** Take into account how the environment affects the character, i.e. rain should plaster hair and clothing to skin
+10. **Categories and structure:** Do not remove the category header for each section (i.e. Subject: or Appearance/Clothing:) and maintain the specific order they are presented in. Do not include any formatting or line breaks between categories or any reasoning.
+11. **Length:** Keep the final prompt between 150 and 300 words. Cut repeated adjectives and low-value quality words ("stunning," "masterpiece," "8k," etc.). Cut extraneous information
+
+use "perfect%" in fix_reason box to indicate a 10/10 image
+
+generate keyword file
+have llm refine keywords to sentences
+have llm revise sentences to be more physically accurate
+
+reading glasses
+money piece from hair
+rainbow hair
+need to isolate what is causing the heavy makeup
+open pussy "peel open her swollen labia, exposing the glistening pink interior"
+small breasts/tits
+clown face
+nipples through tape/clothes, do not describe nipple size, color, etc. if they're covered
+exclude saying anything about tan or tan lines
+if tape on mouth is mentioned then lip size, color, etc. cannot be described
+golden complexion turned skin gold in multiple images
+remove multiple braids from lists
+magic sparkles
+dont include underwater or mentions of mirror unless its a selfie scenes
+"set before a large mirror"
+Lighting: A sharp flashlight or A single flashlight beam will add an actual flashlight to the scene
+add butt plugs to wildcard file {black|heart shaped|{color} jewel}
+Floating in the vastness of deep space should be something like outside at night
+sky showing distant stars and swirling nebulae
+for pee scenes change thick streams to liquid streams or thin liquid streams - need to reinforce liquid not cum/thick
+ass dimples, Deep dimples sit atop her buttocks
+clothing covering vagina/pussy/asshole in a sex scene
+low shot (ground/knee/etc.) when subject is on the ground
+if its raining mention hair/clothes/etc. being wet/soaked/plastered to body
+prismatic lighting casting iridescent highlights
+white dick, try {white|caucasian} person?
+cant say "spray" cum, adds spray bottles to scene. try shoot/squirt/ejaculate
+
+
+###things that are hot
+{thin|thick} {satin|lace|leather} straps
+piss/bukkake
+Subject: A flawless woman with an athletic muscular physique and large prominent breasts. smooth tan skin. She has striking solid white eyes, sharp cat eyeliner, muted peony lipstick, and bright icy blonde hair styled in a silky french braid.
+
+###things to try
+add slashed as adjective for clothing wear
+pouring milk|cum on self
+bathing in milk
+squirting milk|cum from asshole|vagina
+test changing only ethnicity on a prompt and see if it makes a diff, may only matter if its from caucasian|asian|black|pacific islander|indian|{native american|american indian}
+lucy pinder, panam palmer, nier automata 2b, lara croft, ivy soul calibur, chun li, Eve Stellar Blade, cammy street fighter, morrigan darkstalkers, ciri the witcher, quiet metal gear
+nikke Marciana, Anis: Star, Ade: Agent Bunny, Volume, Dorothy: Serendipity, Elegg: Boom and Shock, Mast: Romantic Maid, Snow White: Heavy Arms
+ghost in the shell: Motoko Kusanagi
+real rp/bondage scenes i.e. tied up in a trunk, closet, dungeon. Holding vibrator on pussy, drinking cum from cup
+have the woman pissing, reverse gangbang, tranny sex F/F F/M M/
+add rave girl/burning man/music festival scenes, apparel, glam model, pinup model
+add tribal and flash to tattoo styles
+look at specific scenes from porn
+being fucked from behind, no details for face/breasts
+ruined/running makeup, mascera
+develop a list of current lora's as a source of pose/environment/etc. for models to work from
+
+######
+# Loras
+######
 penis lora - Her penis is erect - 1
 lenono - 1.2-1.5
 real cum lora - 1
@@ -334,3 +409,4 @@ brutal dildo
 missionary anal 0.8-1 girl is lying on back, anal sex, anal penetration large penis, legs up, close-up, shot from side in a dynamic angle.
 doggy anal 0.8-1 she is in doggystyle position having anal sex from behind. a big penis is fucking her anal. her thong is pulled aside. her ass is shiny and oiled. POV from behind. dynamic shot from side.
 anal gape 1.0
+wetness 1.5-2.0

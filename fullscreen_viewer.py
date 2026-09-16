@@ -1,5 +1,6 @@
 """
 Fullscreen single image viewer with review interface
+fullscreen_viewer.py
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
@@ -8,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QPoint, QRect, QSize
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
-from image_utils import load_image_pixmap, get_images_path
+from image_utils import load_image_pixmap, get_images_path, normalize_path
 import os
 import sqlite3
 
@@ -380,7 +381,7 @@ class FullscreenViewer(QWidget):
         #     max_width = 1080
         #     max_height = 1920
 
-        abs_path = os.path.join(get_images_path(), self.image_path)
+        abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
         if os.path.exists(abs_path):
             pixmap = QPixmap(abs_path)
             if not pixmap.isNull():
@@ -398,7 +399,7 @@ class FullscreenViewer(QWidget):
     def load_prompt(self):
         """Load prompt from database"""
         try:
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
             
             conn = sqlite3.connect(db_path)
@@ -417,7 +418,7 @@ class FullscreenViewer(QWidget):
     def load_layers(self, layout):
         """Load layer breakdown from database with text wrapping"""
         try:
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
             
             conn = sqlite3.connect(db_path)
@@ -472,7 +473,7 @@ class FullscreenViewer(QWidget):
     def load_metadata(self):
         """Load metadata from database"""
         try:
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
             
             conn = sqlite3.connect(db_path)
@@ -501,7 +502,7 @@ class FullscreenViewer(QWidget):
     def load_review_data(self):
         """Load existing review data from database"""
         try:
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
             
             conn = sqlite3.connect(db_path)
@@ -541,12 +542,15 @@ class FullscreenViewer(QWidget):
             btn.style().unpolish(btn)
             btn.style().polish(btn)
         
-        is_fixer = verdict in ['Fixer', 'Dud']
-        # Fix: Use the container widgets to set visibility, not the layouts
+        # Always show the fix reason box, which is really just a note field 
+        # is_fixer = verdict in ['Fixer', 'Dud']
         if hasattr(self, 'fix_category_container_widget'):
-            self.fix_category_container_widget.setVisible(is_fixer)
+            #self.fix_category_container_widget.setVisible(is_fixer)
+            self.fix_category_container_widget.setVisible(True)
+
         if hasattr(self, 'fix_reason_container_widget'):
-            self.fix_reason_container_widget.setVisible(is_fixer)
+            #self.fix_reason_container_widget.setVisible(is_fixer)
+            self.fix_reason_container_widget.setVisible(True)
         
         if not restore_data:
             self.save_review_to_db()
@@ -566,7 +570,7 @@ class FullscreenViewer(QWidget):
             from image_utils import get_images_path
             
             # Get image ID from file path
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             
             # Find the image in the database
             result = idb.find_image(abs_path)

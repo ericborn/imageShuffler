@@ -1,5 +1,6 @@
 """
 Widget for displaying a single image with review overlay
+image_display.py
 """
 from PyQt6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox, 
@@ -71,10 +72,10 @@ class ImageDisplay(QFrame):
     def sync_review_state(self):
         """Sync the review state from database to UI"""
         try:
-            from image_utils import get_images_path
+            from image_utils import get_images_path, normalize_path
             import sqlite3
             
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
             
             conn = sqlite3.connect(db_path)
@@ -98,11 +99,16 @@ class ImageDisplay(QFrame):
                     btn.style().unpolish(btn)
                     btn.style().polish(btn)
                 
-                # Show fix details if needed
-                is_fixer = verdict == 'Fixer'
-                self.fix_category_container.setVisible(is_fixer)
-                self.fix_reason_container.setVisible(is_fixer)
-                
+                # Always show the fix reason box, which is really just a note field 
+                # is_fixer = verdict in ['Fixer', 'Dud']
+                if hasattr(self, 'fix_category_container_widget'):
+                    #self.fix_category_container_widget.setVisible(is_fixer)
+                    self.fix_category_container_widget.setVisible(True)
+
+                if hasattr(self, 'fix_reason_container_widget'):
+                    #self.fix_reason_container_widget.setVisible(is_fixer)
+                    self.fix_reason_container_widget.setVisible(True)
+                        
                 if fix_category:
                     index = self.fix_category_combo.findText(fix_category)
                     if index >= 0:
@@ -363,10 +369,10 @@ class ImageDisplay(QFrame):
 
     def insert_into_db(self):
         import image_database as idb
-        from image_utils import get_images_path
+        from image_utils import get_images_path, normalize_path
         
         # Get image ID from file path
-        abs_path = os.path.join(get_images_path(), self.image_path)
+        abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
 
         # Find the image in the database
         result = idb.find_image(abs_path)
@@ -389,10 +395,10 @@ class ImageDisplay(QFrame):
         """Save the review data to the database"""
         try:
             from image_database import update_image_review, find_image
-            from image_utils import get_images_path
+            from image_utils import get_images_path, normalize_path
             
             # Get image ID from file path
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             
             # Find the image in the database
             result = find_image(abs_path)
@@ -425,10 +431,10 @@ class ImageDisplay(QFrame):
     def update_stats_label(self):
         """Update the stats label with times displayed count"""
         try:
-            from image_utils import get_images_path
+            from image_utils import get_images_path, normalize_path
             import sqlite3
             
-            abs_path = os.path.join(get_images_path(), self.image_path)
+            abs_path = normalize_path(os.path.join(get_images_path(), self.image_path))
             db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'image_evaluations.db')
             
             conn = sqlite3.connect(db_path)

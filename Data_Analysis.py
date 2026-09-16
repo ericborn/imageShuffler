@@ -21,7 +21,6 @@ layer_evaluations
 Columns:
 evaluation_id, image_id, layer_number, layer_category, layer_text, 
 execution_status, conflict_type, is_dominant, created_at, updated_at
-
 """
 
 import sqlite3
@@ -154,19 +153,79 @@ except sqlite3.OperationalError as e:
 conn.close()
 
 ##########
+# delete duplicate rows
+##########
+
+conn = sqlite3.connect('image_evaluations.db')
+cursor = conn.cursor()
+
+cursor.execute("""
+               DELETE FROM image_details 
+               WHERE positive_prompt IS NULL AND 
+               negative_prompt IS NULL AND
+               verdict IS NULL AND CFG IS NULL AND
+               fix_reason IS NULL""")
+               
+conn.commit()
+conn.close()
+
+# replace all backslashes in filepath with a forward slash
+conn = sqlite3.connect('image_evaluations.db')
+cursor = conn.cursor()
+
+query = """
+UPDATE image_details
+SET file_path = REPLACE(file_path, '\\', '/')
+WHERE file_path LIKE '%\\%';
+"""
+cursor.execute(query)
+conn.commit()
+conn.close()
+
+##########
 # Favorite count
 ##########
 conn = sqlite3.connect('image_evaluations.db')
 cursor = conn.cursor()
 
+cursor.execute("SELECT COUNT(*) FROM image_details WHERE verdict IS NULL")
+null = cursor.fetchone()[0]
+
 # Get the count
 cursor.execute("SELECT COUNT(*) FROM image_details WHERE verdict = 'Keeper'")
-favorite = cursor.fetchone()[0]
+keeper = cursor.fetchone()[0]
 
-cursor.execute("SELECT COUNT(*) FROM image_details")
+cursor.execute("SELECT COUNT(*) FROM image_details WHERE verdict = 'Fixer'")
+fixer = cursor.fetchone()[0]
+
+cursor.execute("SELECT COUNT(*) FROM image_details WHERE verdict = 'Dud'")
+dud = cursor.fetchone()[0]
+
+cursor.execute("""SELECT COUNT(*) FROM image_details
+               WHERE positive_prompt IS NOT NULL AND 
+               negative_prompt IS NOT NULL AND
+               verdict IS NOT NULL AND CFG IS NOT NULL AND
+               fix_reason IS NOT NULL""")
 total = cursor.fetchone()[0]
 
-print(f"Number of favorited images: {favorite}/{total}")
+print(f"Number of null images: {null}/{total}")
+print(f"Number of dud images: {dud}/{total}")
+print(f"Number of fixed images: {fixer}/{total}")
+print(f"Number of keeper images: {keeper}/{total}")
+print(f"Number of reviewed images: {keeper + dud + fixer}/{total}")
+
+query = """
+    SELECT model, generation_strategy, verdict, COUNT(*) as count
+    FROM image_details
+    GROUP BY verdict, generation_strategy, model
+    ORDER BY model, generation_strategy, verdict, count DESC
+"""
+
+cursor.execute(query)
+rows = cursor.fetchall()
+
+for model, generation_strategy, verdict, count in rows:
+    print(f"model={model}, strategy={generation_strategy}, verdict={verdict}, count={count}")
 
 # Close the connection
 conn.close()
@@ -177,7 +236,9 @@ cursor = conn.cursor()
 
 #cursor.execute("SELECT * FROM image_details WHERE verdict = 'Keeper' limit 1")
 #cursor.execute("SELECT * FROM image_details where image_id = '00102-3272213897.png'")
-cursor.execute("SELECT * FROM image_details limit 100")
+#cursor.execute("SELECT * FROM image_details limit 100")
+#cursor.execute("SELECT * FROM image_details WHERE generation_strategy IS NULL")
+cursor.execute("SELECT * FROM image_details WHERE fix_reason LIKE 'perfect%'")
 
 rows = cursor.fetchall()
 image_path_list = []
@@ -243,11 +304,68 @@ extracted_generation_strategy = text_file_values[1]
 # keywordprompts_revised.txt
 # sentence_prompts_revised.txt
 
+refined_strat = re.search(r'(keyword|sentence)', extracted_generation_strategy).group(1)
+if refined_strat is None:
+    refined_strat = 'Unknown'
+
+# Update generation strategy for all images
+# Initialize the parser manager
+parser_manager = ParserManager()
+
+FOLDER = r'E:\imageShuffler\static'
+DB_PATH = 'image_evaluations.db'
+
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+
+for filename in os.listdir(FOLDER):
+    if not filename.lower().endswith('.png'):
+        continue
+
+    full_path = os.path.join(FOLDER, filename)
+
+    try:
+        prompt_info = parser_manager.parse(full_path)
+        data = json.loads(prompt_info.raw_parameters["workflow"])
+    except Exception as e:
+        print(f"Skipping {filename}: {e}")
+        continue
+
+    # Find the LoadTextFile node and pull out the generation strategy
+    extracted_generation_strategy = None
+    for node in data.get("nodes", []):
+        if node.get('type') == 'LoadTextFile':
+            text_file_values = node.get("widgets_values", [])
+            if len(text_file_values) > 1:
+                extracted_generation_strategy = text_file_values[1]
+            break
+
+    # Classify
+    refined_strat = 'Unknown'
+    if extracted_generation_strategy:
+        match = re.search(r'(keyword|sentence)', extracted_generation_strategy)
+        if match:
+            refined_strat = match.group(1)
+
+    # Update matching row by file_path AND file_name
+    cursor.execute(
+        """
+        UPDATE image_details
+        SET generation_strategy = ?
+        WHERE file_path = ?
+        """,
+        (refined_strat, full_path),
+    )
+
+conn.commit()
+conn.close()
+
+
 #############
 # Words to remove/rework from prompts
 #############
 
-#
+
 
 #########
 # find tags of single image from filename

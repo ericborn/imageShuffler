@@ -1,5 +1,6 @@
 """
 Image loading and management utilities
+image_utils.py
 """
 import os
 import glob

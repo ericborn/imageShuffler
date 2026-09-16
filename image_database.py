@@ -1,3 +1,7 @@
+"""
+SQL functions
+image_database.py
+"""
 import os
 import sqlite3
 from pathlib import Path
@@ -73,7 +77,6 @@ def init_db():
             
     conn.commit()
     conn.close()
-    print("✓ Database tables created successfully")
 
 def insert_image(image_data: Dict) -> int:
     """
@@ -497,21 +500,22 @@ def mark_as_seen(image_path):
     cursor = conn.cursor()
     
     image_name = os.path.basename(image_path)
-    abs_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static', image_path)
-    
-    cursor.execute('SELECT times_displayed FROM image_details WHERE image_id = ?', (image_name,))
+    abs_path = normalize_path(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static', image_path)
+    )
+    cursor.execute('SELECT image_id, times_displayed FROM image_details WHERE file_path = ?', 
+                   (abs_path,))
     result = cursor.fetchone()
     
     if result:
-        new_count = result[0] + 1
         cursor.execute(
             'UPDATE image_details SET times_displayed = ? WHERE image_id = ?',
-            (new_count, image_name)
+            (result[1] + 1, result[0])
         )
     else:
         cursor.execute(
             'INSERT INTO image_details (file_path, file_name, times_displayed) VALUES (?, ?, 1)',
-            (normalize_path(abs_path), image_name)
+            (abs_path, image_name)
         )
     
     conn.commit()
@@ -521,25 +525,26 @@ def get_image_stats(image_path):
     """Get image statistics from database"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    image_id = os.path.basename(image_path)
+    abs_path = normalize_path(
+        os.path.join(get_images_path(), image_path)
+    )
     
-    cursor.execute('SELECT times_displayed FROM image_details WHERE image_id = ?', (image_id,))
+    cursor.execute('SELECT times_displayed FROM image_details WHERE file_path = ?', (abs_path,))
     result = cursor.fetchone()
     conn.close()
-    
-    if result:
-        return {'times_displayed': result[0]}
-    return {'times_displayed': 0}
+    return {'times_displayed': result[0] if result else 0}
 
 def mark_deleted(image_path):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    image_id = os.path.basename(image_path)
+    abs_path = normalize_path(
+        os.path.join(get_images_path(), image_path)
+    )
 
     # Check if a fix_reason already exists for this image
     cursor.execute(
-        "SELECT fix_reason FROM image_details WHERE image_id = ?",
-        (image_id,)
+        "SELECT fix_reason FROM image_details WHERE file_path = ?",
+        (abs_path,)
     )
     row = cursor.fetchone()
 
@@ -550,14 +555,14 @@ def mark_deleted(image_path):
             SET verdict = 'Dud', 
                 fix_category = 'Deleted', 
                 fix_reason = 'Image deleted by user' 
-            WHERE image_id = ?""", (image_id,))
+            WHERE file_path = ?""", (abs_path,))
     else:
         # Preserve existing fix_reason, only update verdict and fix_category
         cursor.execute("""
             UPDATE image_details 
             SET verdict = 'Dud', 
                 fix_category = 'Deleted' 
-            WHERE image_id = ?""", (image_id,))
+            WHERE file_path = ?""", (abs_path,))
 
     conn.commit()
     conn.close()
@@ -565,9 +570,9 @@ def mark_deleted(image_path):
 def find_image(image_path):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT image_id FROM image_details WHERE file_path = ?", (image_path,))
+    cursor.execute("SELECT image_id FROM image_details WHERE file_path = ?", 
+                   (normalize_path(image_path),))
     result = cursor.fetchone()
-
     return result
 
 def update_image_review(image_id: int, review_data: Dict):
