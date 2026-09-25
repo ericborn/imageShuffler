@@ -13,47 +13,23 @@ prompt test
 2 sentence-revised sentences revised with LLM 
 3 keyword-raw random keywords converted to sentences
 4 keyword-revised random keyword sentences revised from LLM
+keeper 50.2% for keyword, 49.8% for sentence
+fixed 49.8% for keyword, 50.2% for sentence
+dud 49.6% for keyword, 50.3% for sentence
 
-scrap a/b comparisons
-run 30 (15 keyword-revised + 15 sentence-revised) with each model + workflow
-3 workflows, 6 models = 450 images
-run them through rating app and vote
-dont delete any images, indicate if dud and why
-analyze data afterwards
+generated vs refined test
+314 image prompts generated then refined with a second llm pass
+69.4% keeper for generated, 73% keeper for refined
+30.6% Dud for generated, 27% dud for refined
 
-weird lighting/camera angles (look for specific prompting)
-prompts being followed too closely? (look for specific prompting)
-white dicks on humans (look for specific prompting)
-pussys stretched open is gross (look for specific prompting)
-some makeup styles look like clown face (look for specific prompting)
-bodies still turned half front half back (look for specific prompting)
+workflow:
+complete lora associated keywords list
+add chance to skip lora.
+need wildcard files for themes/characters/actions
+
+
 
 gonzaLomoKrea2_v40-release/%ckpt.unet_name%_%date:yyyy-MM-dd-hhmmss%_%KSamplerMain.seed%
-
-
-size
-    1280x1024
-    1920x1536
-    2560x2048
-
-sampler x2
-    linear/heun_3s
-    exponention/res_2s
-    multistep/res_2m
-
-sampler x1
-    
-
-vae
-    HDR VAE anima
-    wan2.1 upscale
-    wan2.1
-    krea2Real
-
-scheduler
-    ddium_uniform
-    beta
-
 
 
 generate better images with fewer bad images
@@ -121,17 +97,6 @@ wearing western outfit vs wearing pirate outfit
 need to determine if butt/breasts/asshole/vagina are exposed from character pose (bent over, frontal, etc.), listing large ass exposed asshole changes perspective to rear when it may not be intentional
 
 __porniXL/descriptors__ woman, __porniXL/base__, {0-2$$__porniXL/ethnicity__|__porniXL/skin_tone__,} {0-1$$__porniXL/makeup__,} {0-1$$__porniXL/tats__,} __porniXL/hair_texture__ __porniXL/hair_style__ __porniXL/hair_color_saturation__ __porniXL/hair_color__ hair, __porniXL/eye_color__, wearing {__porniXL/clothing_category__|__porniXL/clothing_lora__,} {0-1$$__porniXL/accessories__,} {0-1$$__porniXL/position__,} {0-1$$__porniXL/setting__|__porniXL/socapunk__,} __porniXL/lighting__, __porniXL/positive_prompt_trimmed__, extreme detail, masterpiece, best quality, 8k, realistic  
-
-###########
-# 
-###########
-Generate Control groups: Pick 10 random prompts. Generate them across 3 seeds. Add these to your dataset to act as a "baseline" for what is inherently likable.
-
-Run a simple Chi-Square test on the most common nouns and adjectives to get a quick "kill-list" of words you should never use again.
-
-Use a Large Language Model (LLM) as a synthesizer: Feed your top 20 "Like" prompts and bottom 20 "Dislike" prompts into an LLM (like GPT-4) and ask: "Act as a prompt engineer. Given these positive and negative examples, write a 5-point style guide explaining the structural, grammatical, and lexical differences between these two sets." LLMs are remarkably good at spotting syntactic patterns (e.g., "You use commas after adjectives in the bad set, but use spaces in the good set").
-
-The ultimate test: Take the top 5 "good" words you discover and the top 5 "bad" words. Create 10 new prompts that are identical except you swap those words. Generate them. If the "good word" versions win 8 out of 10 times, you have successfully solved your problem.
 
 ##############
 # new prompting method
@@ -353,7 +318,7 @@ exclude saying anything about tan or tan lines
 if tape on mouth is mentioned then lip size, color, etc. cannot be described
 golden complexion turned skin gold in multiple images
 remove multiple braids from lists
-magic sparkles
+floating magic sparkles drifting through the air
 dont include underwater or mentions of mirror unless its a selfie scenes
 "set before a large mirror"
 Lighting: A sharp flashlight or A single flashlight beam will add an actual flashlight to the scene
@@ -361,6 +326,7 @@ add butt plugs to wildcard file {black|heart shaped|{color} jewel}
 Floating in the vastness of deep space should be something like outside at night
 sky showing distant stars and swirling nebulae
 for pee scenes change thick streams to liquid streams or thin liquid streams - need to reinforce liquid not cum/thick
+for cum 
 ass dimples, Deep dimples sit atop her buttocks
 clothing covering vagina/pussy/asshole in a sex scene
 low shot (ground/knee/etc.) when subject is on the ground
@@ -368,11 +334,109 @@ if its raining mention hair/clothes/etc. being wet/soaked/plastered to body
 prismatic lighting casting iridescent highlights
 white dick, try {white|caucasian} person?
 cant say "spray" cum, adds spray bottles to scene. try shoot/squirt/ejaculate
+dont say lip/nose ring always say hoop
+She has complex tattoos that span between her hypochondriac and epigastric regions. (between and under the breasts)
+
+Text LLM workflow:
+Character creator -> Action/Pose/situation creator -> Environment/Lighting creator -> Camera creator
+
+### charaters
+demon - sexy demon girl, dark fantasy, revealing clothes, large demon wings, nudity, body jewelry
+succubus
+egirl - e-girl style eye makeup, over-the-ear headset with cat ears on the band and LEDs need accessories list to go with them, 
+goth girl - adult woman with fair skin, short messy black hair in a shaggy bob style, heavy alternative makeup, dark smoky eyeshadow, prominent red blush across her nose and cheeks, a septum piercing, and a lip piercing. She is wearing a structured black halter-neck bodysuit, sheer long black opera gloves, and heavily distressed black sheer tights with large decorative tears along the legs. She is standing indoors in front of a mirror, holding a black smartphone to capture the shot, showing her full body profile. In the background, there is a modern interior with light wood vertical slats, a small hanging potted plant, and a soft white translucent window curtain with warm natural daylight streaming through. Cinematic style, street style, alt-fashion, unedited, rich texture details, sharp focus, 8k resolution.
+medieval (warrior/ranger)
+mad max style
+    - A hyper-feminine transgender futanari wasteland warrior stands proudly amidst the desert dunes with an amazonian physique featuring rippling abdominal muscles and thick, powerful thighs that support massive, heavy breasts straining against her gear. Her sun-baked olive skin is smeared with grease and adorned with intricate black tribal tattoos winding up her muscular legs and across her hips. A playful smirk plays on her lips while her intense amber gaze locks onto the viewer through smudged charcoal war paint around her eyes. Wild, waist-length braids of ash-blonde hair whip around her shoulders in the hot wind. She wears a shredded leather bikini top that is far too small for her chest and low-slung denim shorts held up by heavy tactical ammo belts wrapped around her upper thighs. Between her thick legs hangs a large, pulsating erect penis with prominent veins and beads of pre-cum glistening at the tip as it points upward toward her navel. Her manicured pubic hair is styled in a sharp diamond shape beneath a pair of silver nipple rings that catch the light.
+trans - hyper-feminine, androgynous femboy, futanari
+warhammer 40k - female space marine, sexy revealing breast armor, armored, pelvic curtain, thighs, warhammer 40k
+assassin
+cyborg assassin
+    -cyborg assassin with human flesh face and breasts, cyborg cybernetic enhancements, looking at the camera, wielding an enormous sci-fi sword with mechanical parts at the camera, action pose, action shot, action camera effects, intricate detailed, epic quality, profile picture, mechanical, background is a cyborg lab she is trying to escape from
+    -Gorgeous female android, white skin with turquoise and gold filigree robotics and joints, narrow waist, wide hips, perky full D-cup flesh breasts, large soft nipples, firm round ass
+Nami - a woman cosplaying as Nami from One Piece with extremely thin waist, wide hips and massive breasts.
+cyborg jobs: assassin, warrior, ranger, barbarian, egirl, demon?, goth, mad-max?
+
+A stunning dynamic pose, 2handed war hammer highly detailed dark fantasy full body illustration of a mystic MAN. he walks in frost mountain, big gems in each shoulder and chest,frost god,crown dark HKStyle armor, crown helmet,cracked armor, cracked , cristal frost, photorealist, A stunning, highly detailed dark fantasy full body illustration of a proud demonic warrior wearing intricate medieval HKStyle armor and an epic ornamented mask, (holding a great frost glowing big 2handed war hammer) , cape, light blue glooming eyes, very wide shoulders, wearing big gauntlets, (frost aura around body:1.8),epic composition. The warrior stands heroic with a flowing cloak during a blizzard with foggy gloom, blizzard in the background . The scene depicts him with brooding emotional agony , style by Greg Rutkowski, by Milo Manara and Russ Mills, with insanely intricate details and textures, gloomy dramatic lighting, 8K resolution
+
+#games
+panam palmer
+Ivy Valentine soul calibur,
+chun li, cammy - street fighter
+Eve Stellar Blade
+Morrigan Aensland darkstalkers
+ciri, Triss Merigold, - the witcher
+Bayonetta
+Mai Shiranui king of fighters
+kitana, Mileena, yennefer of Vengerberg - mortal kombat
+Cindy Aurum - FFXV
+rachel ninja gaiden
+faith connors - mirror's edge
+nariko heavenly sword
+
+# comic chars
+Starfire
+huntress
+Talia al Ghul
+emma frost
+psylocke
+dejah thoris
+Catwoman
+red sonja
+
+primary action, secondary action, tertiary action
+getting handjob, kissing, 
+
+
+sexy sniper - Glamour pinup style photograph. Dynamic camera angle with a closeup on the face of a beautiful amazon woman from space, very large round breasts, looking at viewer, holding large sniper rifle, wearing a skimpy black leather bikini with crossed straps around her ribs, red leather shrug that ties across the chest and a black choker with a small gold emblem in the middle. She has straight light blonde hair parted to one side, red garrison cap, black fingerless gloves, black criss-cross thigh straps with holsters, loose belt. She is standing on a space station, with windows looking at a large planet in the distance. sci-fi, dim lighting, 
+barbarian - {photo medium}, a {descriptor} barbarian with {hair_color} styled in a messy tousled style with small decorative braids, feathers, beads and small bones. She is wearing a sexy barbarian cosplay with bikini armor, low heel boots, pauldrons, gauntlets, armlets and a single thigh armor plate. All the armor pieces have a rough hammered iron texture and are trimmed with fur and hide. Her physique is pumped, her muscles are swollen, visibly defined and she is covered in a light sheen of sweat.
+2b nier automata - Fashion photography of a sexy woman cosplaying as 2b from nier:automata. She has short white hair which covers one eye, blue eyes, black hairband. She has a curvy pawg body, very large breasts, wide hips, toned thighs, and flawless porcelain skin. She is wearing a form-fitting black satin high-neck mini dress with a very high side slit, an open back, and intricate white geometric patterns along the hem and chest window. thigh-high black stiletto heeled boots worn over sheer black garter stockings.
+lara croft - Fashion photography of a beautiful caucasian young woman cosplaying as Lara Croft. She has long auburn hair styled in a braid with loose strands over one eye, and blunt bangs. Her eyes are brown with v-shaped eyebrows. She is wearing a tightly fitted cropped teal tank top showing massive cleavage, light brown cargo shorts, dual brown leather thigh holsters with pistols, and brown belt. She has a very toned body with defined abs, narrow waist, wide hips and large breasts
+Cassandra Lane is a stereotypical bad girl. She is part cyborg with a light weight sleek cybernetic right arm. She wears extra small light purple micro bandeau showing off her massive breasts and deep cleavage, very small light purple leather g-string with black knee high combat boots. Her waist has a heavy utility belt, a thigh holster, and futuristic ballistic weaponry. She has short messy blonde hair with brown lowlights.
+Lady Death is a beautiful, seductive, voluptuous femme fatale and ruthless warrior-queen with long wavy grayish-white hair worn past her shoulders and flawless white skin and solid white eyes. She wears a revealing, lingerie-style black leather armor set decorated with skull motifs and gold metallic hardware.
+vampirella is a female vampire with very long flowing black hair that cascades down to her waist, fair pale white skin with blue eyes. She wears a minimal red sling swimsuit featuring a plunging neckline, a downturned white vampire collar attached at the back of her neck. a thick solid gold armband on the left arm and and three golden braclets on the right wrist. She has massive breasts with wide hips and a narrow waist. patent leather thigh high stiletto heeled black boots with eyelets running up them on her feet.
+Hellwitch is a brown hair humanoid demon with silver horns. She has white eyes with darkened lips and a silver lip ring. {She is wearing a spikey black bikini|she is topless} with a spiked collar. She is wearing a black latex string bikini. She has silver braces on her lower arms and silver metal gloves her hands. Her boots are black with silver knee pads on the top. She has massive demon wings on her back.
+witchblade comic character posing in a living room. Wearing a very revealing and skimpy semi-organic, symbiotic mystical armor that manifests as a revealing, pearlescent ivory and gold metalic bio-mechanical bikini paired with an intricate, clawed gauntlet covering the right arm. red Witchblade gems set across the chest and thighs, ornate sculpted plating.
+
+
+### scene/action
+two girls in a shower kissing under a torrent of water from an overhead shower head. large breasts smashed together as they lock lips and grab each others breasts
+gangbang - she is in a rough gangbang getting fucked by three men. double penetration, oral sex. they are fucking her ass and pussy. she is sucking the penis of a man.
+number gender are the subjects. subject 1 does this, subject 2 does this, etc.
+spit roast, 2v1, bukkake, blowjob/deepthroat, dildo/sex toys/finger, handjob, titjob, creampie, anal/vaginal fisting, trans fisting
+pussy/ass insertion - traffic cone, bowling pin, baseball bat, banana, cucumber, {1-3$$ jewlery type} necklaces, anal beads
+cum dumping - There is thick cum pouring on her head from a multiple large glass pitchers, coating her hair, face, eyes, chest, and entire body in thick white liquid.
+squirting - male on female, trans on female, trans on trans, male on trans, female/trans solo, lesbian
+specific bondage types - rope, chair, hogtied, elbow, breast, strappado, spread eagle, arms over head, wrapround tape
+
+bukkake - high-angle shot of a bound 30 y.o. woman in an intense bukkake scene, her head tilted back with eyes open and mouth wide open in ecstasy, her mouth full of thick cum, eyes clogged with cum puddles, face and chest completely drenched in thick white sperm dripping from her lips, chin, and neck, behind her another woman whose face is not visible with hands featuring red nails and finger tattoos firmly gripping the first woman's cheeks and jaw to hold her in place, while another large erect penis positioned very close to the first woman's open mouth releases more sperm directly into it with visible strings and splashes. woman one wears a tight black leather collar with metal rings and thick white ropes binding her large breasts and torso, dark gritty indoor setting, raw intense close-up angle from above emphasizing humiliation and pleasure
+
+### facial expressions
+need an expressions wildcard file
+
+### Action/Poses
+
+**Fetish & Niche Themes**
+**Latex/Rubber Bondage** (2) – Sexual acts while wearing tight, shiny latex suits.
+**Leather Gear Play** (2) – Heavy leather-clad dominance and submission scenarios.
+
+**Physical Positions**
+Doggy Style/Rear Entry** (2) – Classic position for deep penetration and visual access to buttocks.
+Cowgirl/Reverse Cowgirl** (2) – Riding partner focusing on clitoral or G-spot stimulation.
+Missionary with Leg Elevation** (2) – Traditional face-to-face with thighs held high for deeper depth.
+Standing Oral/Face-to-Floor** (2) – One partner kneeling while the other stands, performing oral sex.
+The Lotus Position** (2) – Intimate chest-to-chest wrapping during intercourse.
+Deep Throat Focus** (2) – Intense oral sex emphasizing the gag reflex and depth.
+Prone Bone** (2) – One partner lying flat on their stomach while penetrated from behind.
+Spooning/Side-Lying Sex** (2) – Intimate, low-effort grinding and penetration while side-lying.
+{"category": "BDSM & Power Exchange", "action": "Dungeon Maid Service", "char_cap": "3", "receiver_gender": "M, F, MTF", "min_num_receiver": "1", "max_num_receiver": "2", "giver_gender": "M, F, MTF", "min_num_giver": "1", "max_num_giver": "3", "allow_additional_details": true,"details": "submissive partner dressed in lingerie serving the dominant while being sexually toyed with. Can be accompanied by oral, anal, or vaginal single, double, or triple penetration, same hole or different, via fingers, sex toys, objects."}
+{"category": "BDSM & Power Exchange", "action": "Pet Play/Human Leash", "char_cap": "3", "receiver_gender": "M, F, MTF", "min_num_receiver": "1", "max_num_receiver": "2", "giver_gender": "M, F, MTF", "min_num_giver": "1", "max_num_giver": "3", "allow_additional_details": true,"details": "Treating a submissive like an animal, including collars and leashes. Can be accompanied by oral, anal, or vaginal single, double, or triple penetration, same hole or different, via fingers, sex toys, objects."}
 
 
 ###things that are hot
 {thin|thick} {satin|lace|leather} straps
-piss/bukkake
+piss/
+licking face/mouth
 Subject: A flawless woman with an athletic muscular physique and large prominent breasts. smooth tan skin. She has striking solid white eyes, sharp cat eyeliner, muted peony lipstick, and bright icy blonde hair styled in a silky french braid.
 
 ###things to try
@@ -381,7 +445,6 @@ pouring milk|cum on self
 bathing in milk
 squirting milk|cum from asshole|vagina
 test changing only ethnicity on a prompt and see if it makes a diff, may only matter if its from caucasian|asian|black|pacific islander|indian|{native american|american indian}
-lucy pinder, panam palmer, nier automata 2b, lara croft, ivy soul calibur, chun li, Eve Stellar Blade, cammy street fighter, morrigan darkstalkers, ciri the witcher, quiet metal gear
 nikke Marciana, Anis: Star, Ade: Agent Bunny, Volume, Dorothy: Serendipity, Elegg: Boom and Shock, Mast: Romantic Maid, Snow White: Heavy Arms
 ghost in the shell: Motoko Kusanagi
 real rp/bondage scenes i.e. tied up in a trunk, closet, dungeon. Holding vibrator on pussy, drinking cum from cup

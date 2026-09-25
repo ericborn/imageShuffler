@@ -33,7 +33,10 @@ WORKFLOW_PROMPT_PATH = Path("data/krea2_workflow_prompt.json")
 # UI-format workflow (litegraph, embedded into PNG metadata as "workflow")
 WORKFLOW_PATH = Path("data/krea2_workflow.json")
 
-PROMPTS_PATH = Path("data/prompt_test.txt")
+#PROMPTS_PATH = Path("data/prompt_test.txt")
+#PROMPTS_PATH = Path("data/keywordprompts_refined.txt")
+PROMPTS_PATH = Path("data/keywordprompts_generated.txt")
+
 LORAS_PATH = Path("data/loras.jsonl")
 
 # --- API-side node IDs ---
@@ -53,7 +56,12 @@ UI_NODE_SAVE = 21          # SaveImage
 UI_MATCHED_SLOTS = 4
 
 DETAIL_LORA = "detail_slider_krea2_loraholic.safetensors"
-DETAIL_STRENGTH = 5.0      # fixed strength for the always-on detail lora
+REAL_LORA = "real_3d_krea2_loraholic.safetensors"
+HARDCODE_LORA = [DETAIL_LORA, REAL_LORA]
+
+DETAIL_STRENGTH = 5.0      # fixed strength for the background detail lora
+REAL_STRENGTH = 1.5        # fixed strength for the real vs 3d detail lora
+
 MAX_MATCHED_LORAS = 3      # 3 matched + 1 detail = 4 total slots (API side)
 
 POLL_INTERVAL = 1          # seconds between /history polls
@@ -70,9 +78,11 @@ EXCLUSIVE_GROUPS = [
     {"ass_krea2_loraholic.safetensors", "ass_v2_krea2_loraholic.safetensors"},    
     {"anal_helper_krea2_loraholic.safetensors", "self_anal_fingering.safetensors",
      "krea2-OnlyAnal_v1-step11070-k3nk.safetensors", "k_doggyadrianoanal.safetensors",
-     "Krea2_fingering_V0.1.safetensors", "ShemaleHugeDildoV1"},
-    {"self_anal_fingering.safetensors", "Krea2_fingering_V0.safetensors"}
+     "Krea2_fingering_V0.1.safetensors", "ShemaleHugeDildoV1.safetensors"},
+    {"self_anal_fingering.safetensors", "Krea2_fingering_V0.safetensors"},
+    {"K_excessivecum.safetensors", "realcumk4.safetensors"}
 ]
+
 
 # ----------------------------------------------------------------------------
 # file helpers
@@ -229,10 +239,10 @@ def _apply_exclusive_groups(chosen: list[dict]) -> list[dict]:
     for group in EXCLUSIVE_GROUPS:
         matches = [l for l in chosen if l["filename"] in group]
         if len(matches) > 1:
-            keep_name = random.choice(matches)["filename"]
+            keep = random.choice(matches)["filename"]
             chosen = [
                 l for l in chosen
-                if l["filename"] not in group or l["filename"] == keep_name
+                if l["filename"] not in group or l["filename"] == keep
             ]
     return chosen
 
@@ -247,12 +257,13 @@ def match_loras(prompt: str, loras: list[dict]) -> list[dict]:
     pool = []
 
     for lora in loras:
-        if lora["filename"] == DETAIL_LORA:
+        if lora["filename"] in HARDCODE_LORA:
             continue
-        hits = _keyword_hits(prompt_lower, lora["fuzzywords"])        
-        hits += _keyword_hits_exact(prompt_lower, lora["keywords"])
-        if hits > 0:
-            pool.append((hits, lora))
+        fuzzy_hits = _keyword_hits(prompt_lower, lora["fuzzywords"])
+        keyword_hits = _keyword_hits_exact(prompt_lower, lora["keywords"])
+        total_hits = fuzzy_hits + keyword_hits
+        if total_hits > 0:
+            pool.append((total_hits, lora))
 
     if not pool:
         return []
@@ -324,8 +335,13 @@ def build_api_payload(
         "lora": DETAIL_LORA,
         "strength": DETAIL_STRENGTH,
     }
+    new_inputs["lora_2"] = {
+        "on": True,
+        "lora": REAL_LORA,
+        "strength": REAL_STRENGTH,
+    }
 
-    for idx, l in enumerate(chosen_loras, start=2):
+    for idx, l in enumerate(chosen_loras, start=3):
         new_inputs[f"lora_{idx}"] = {
             "on": True,
             "lora": l["filename"],
@@ -418,6 +434,13 @@ def patch_ui_power_lora(
         "strength": DETAIL_STRENGTH,
         "strengthTwo": None,
     }
+    
+    real_slot = {
+        "on": True,
+        "lora": REAL_LORA,
+        "strength": REAL_STRENGTH,
+        "strengthTwo": None,
+    }
 
     # Build up to UI_MATCHED_SLOTS entries. Pad with disabled placeholders
     # so the frontend still renders the same number of rows.
@@ -441,7 +464,7 @@ def patch_ui_power_lora(
                 existing_names.append(item["lora"])
     filler_lora = None
     for name in existing_names:
-        if name != DETAIL_LORA:
+        if name not in HARDCODE_LORA:
             filler_lora = name
             break
     if filler_lora is None:
@@ -457,18 +480,19 @@ def patch_ui_power_lora(
 
     # ---- positional form ----
     if isinstance(wv, list):
-        # Ensure the list is long enough: header + detail + N slots + 2 trailing
-        needed = 2 + 1 + UI_MATCHED_SLOTS + 2
+        # Ensure the list is long enough: header + detail + real + N slots + 2 trailing
+        needed = 2 + 2 + UI_MATCHED_SLOTS + 2
         while len(wv) < needed:
             wv.append({})
         wv[0] = {}
         wv[1] = {"type": "PowerLoraLoaderHeaderWidget"}
         wv[2] = detail_slot
+        wv[3] = real_slot
         for i, slot in enumerate(slots):
-            wv[3 + i] = slot
+            wv[4 + i] = slot
         # trailing widgets
-        wv[3 + UI_MATCHED_SLOTS] = {}
-        wv[4 + UI_MATCHED_SLOTS] = ""
+        wv[4 + UI_MATCHED_SLOTS] = {}
+        wv[5 + UI_MATCHED_SLOTS] = ""
         node["widgets_values"] = wv
 
     # ---- named form ----
@@ -649,39 +673,60 @@ run_batch()
 # running a single prompt at a time to evaluate
 # ----------------------------------------------------------------------------
 
-# workflow = load_workflow()
+# api_workflow = load_api_workflow()
+# ui_workflow = load_ui_workflow()
 # prompts = load_prompts()
 # loras = load_loras()
 
 # print(f"[batch] {len(prompts)} prompts, {len(loras)} loras loaded")
 
-# i = 2
-# chosen = match_loras(prompts[i], loras)
+# i = 4
+# prompt = prompts[i]
+
+# chosen = match_loras(prompt, loras)
 # if chosen:
-#     names = ", ".join(f"{l['filename']}@{l['chosen_strength']}" for l in chosen)
+#     names = ", ".join(
+#         f"{l['filename']}@{l['chosen_strength']}" for l in chosen
+#     )
 #     print(f"[batch] loras: {names}")
 # else:
 #     print("[batch] no loras matched (detail only)")
 
-# payload = None
+# # Roll the seed once so API and UI stay in sync
+# seed = random.randint(0, 999_999_999_999)
+# filename_prefix = make_filename_prefix()
+
 # try:
-#     payload = build_prompt_payload(workflow, prompts[i], chosen)
+#     ensure_today_output_dir()
+#     api_payload = build_api_payload(
+#         api_workflow, prompt, chosen, seed
+#     )
+#     ui_payload = build_ui_payload(
+#         ui_workflow, prompt, chosen, seed, filename_prefix
+#     )
 # except Exception as e:
 #     print(f"[batch] failed to build payload: {e}")
+    
 
-# if payload is None:
-#     print("[batch] skipping — no payload")
-# else:
-#     ensure_today_output_dir()
-#     prompt_id = queue_prompt(payload)
-#     if prompt_id is None:
-#         print("[batch] submission failed — skipping")
-#     else:
-#         print(f"[batch] queued as {prompt_id}, waiting...")
-#         ok = wait_for_completion(prompt_id)
-#         if not ok:
-#             print(f"[batch] generation failed for prompt {i}")
-#         else:
-#             print("[batch] done")
+# prompt_id = queue_prompt(api_payload, ui_payload)
+# if prompt_id is None:
+#     print("[batch] submission failed — skipping")
+    
 
-# print("\n[batch] all prompts processed")
+# print(f"[batch] queued as {prompt_id}, waiting...")
+# ok = wait_for_completion(prompt_id)
+# if not ok:
+#     print(f"[batch] generation failed for prompt {i}")
+    
+
+# print("[batch] done")
+
+
+# prompt = "the object was a doggy. it was an orange cat, not black"
+# words = ["doggy", "dog", "canine"]
+# _keyword_hits_exact(prompt, words)
+# _keyword_hits_exact(prompts[4], loras[24]['keywords'])
+
+
+# prompt = "down arrow shaped pubic hair. Anal fingering, missionary vaginal. Appearance/Clothing: She "
+# match_loras(prompt, loras)

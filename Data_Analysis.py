@@ -34,8 +34,32 @@ from wordcloud import WordCloud
 import re
 import os
 import json
-#from PIL import Image
+from PIL import Image
 #import numpy as np
+
+def view_comfy_json(image_path):
+    # Open the image file
+    with Image.open(image_path) as img:
+        # ComfyUI stores workflow metadata in PNG text chunks
+        metadata = img.info
+        
+        # 'workflow' contains the full UI graph, 'prompt' contains the API-format graph
+        for key in ['workflow', 'prompt']:
+            if key in metadata:
+                print(f"--- Found {key.upper()} JSON ---")
+                try:
+                    # Parse and pretty-print the JSON string
+                    parsed_json = json.loads(metadata[key])
+                    print(json.dumps(parsed_json, indent=4))
+                except json.JSONDecodeError:
+                    # Fallback if it's not strictly parseable
+                    print(metadata[key])
+
+# Replace with your actual image path
+view_comfy_json(r"C:\ComfyUI_windows_portable\ComfyUI\output\test4\test1_00335_.png")
+metadata_working = Image.open(r"C:\ComfyUI_windows_portable\ComfyUI\output\test4\test1_00335_.png").info
+metadata_broken = Image.open(r"C:\ComfyUI_windows_portable\ComfyUI\output\2026-09-17\2026-09-17-140829_00001_.png").info
+
 
 def extract_loras(json_data):
     """Extract lora_name: strength_model pairs from a ComfyUI workflow JSON.
