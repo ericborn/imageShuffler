@@ -284,6 +284,8 @@ Think step by step about the overall picture before writing the answer:
 
 Then output paragraphs detailing all require attributes.
 
+D4S1W4_NSFWSME, c0wg1rl. smooth jiggle animation. tweking, shaking ass, squelching sounds. extremely fast twerking motion, up and down bouncing, Riding backshot animation. 
+
 ###########
 # Prompt refiner
 ###########
@@ -338,7 +340,16 @@ dont say lip/nose ring always say hoop
 She has complex tattoos that span between her hypochondriac and epigastric regions. (between and under the breasts)
 
 Text LLM workflow:
-Character creator -> Action/Pose/situation creator -> Environment/Lighting creator -> Camera creator
+Action/Pose/situation creator -> Character creator ->  Environment/Lighting creator -> Camera creator
+
+generate x action/poses with an any/sfw/nsfw switch
+run 1st pass llm to create scene details
+pull out the num of chars in the scene
+generate chars for each with matching theme/mis-matched theme switch.
+pass basic scene + characters + theme to environment/lighting
+pass environment to scene revisor, look for inconsistencies/impossibilities in positioning, descriptions, clothing, etc. 
+pass to camera creator
+pass to final review/revision
 
 ### charaters
 demon - sexy demon girl, dark fantasy, revealing clothes, large demon wings, nudity, body jewelry

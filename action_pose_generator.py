@@ -3,16 +3,16 @@
 Created on Thu Sep 24 16:19:01 2026
 
 @author: eric
+
+# if there is one giver/reciver change prompt to not be plural
+# givers are changes to giver is
+# clean data to remove m/f/mtf from action and details
 """
 
 import json
 import random
 from dataclasses import dataclass, field
 from typing import Optional
-
-# if there is one giver/reciver change prompt to not be plural
-# givers are changes to giver is
-# clean data to remove m/f/mtf from action and details
 
 @dataclass
 class Character:
@@ -30,16 +30,191 @@ class Character:
 class PoseResult:
     """The final result of the primary + additional workflow."""
     action: str
-    receivers: list[Character] = field(default_factory=list)
-    givers: list[Character] = field(default_factory=list)
-    additional: Optional[dict] = None  # {"secondary_action": str, "details": str,
-                                        #  "receivers": [...], "givers": [...], "applies_to": str}
+    additional: Optional[dict] = None  # {"secondary_action": str, "details": str}
+
+# ---- Number -> word
+_NUM_WORDS = {
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four",
+    5: "five",
+    6: "six",
+    7: "seven",
+    8: "eight",
+    9: "nine",
+    10: "ten",
+}
 
 
-def load_jsonl(path: str) -> list[dict]:
+def _number_word(n: int) -> str:
+    """Return 'one', 'two', ... falling back to the digit for large n."""
+    return _NUM_WORDS.get(n, str(n))
+
+
+def _singularize_gender(gender: str) -> str:
+    """Map a gender token to its singular noun form."""
+    g = gender.strip().lower()
+    mapping = {
+        "male": "man",
+        "man": "man",
+        "female": "woman",
+        "woman": "woman",
+        "mtf": "trans female",
+    }
+    return mapping.get(g, g)
+
+
+def _pluralize_gender(gender: str) -> str:
+    """Map a gender token to its plural noun form."""
+    g = gender.strip().lower()
+    mapping = {
+        "male": "men",
+        "man": "men",
+        "female": "women",
+        "woman": "women",
+        "mtf": "trans women",
+    }
+    return mapping.get(g, g + "s")
+
+def _capitalize_first(s: str) -> str:
+    return s[:1].upper() + s[1:] if s else s
+
+
+def _join_with_and(items: list[str]) -> str:
+    """Join items with commas + 'and': ['a','b','c'] -> 'a, b, and c'."""
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def _format_group(genders: list[str]) -> str:
+    """
+    Given a list of gender tokens (e.g. ['female','female','male']),
+    return a phrase like 'two women and one man'.
+    Returns '' for an empty list.
+    """
+    if not genders:
+        return ""
+
+    # Preserve first-seen order for stable, natural phrasing.
+    counts: dict[str, int] = {}
+    order: list[str] = []
+    for g in genders:
+        key = g.strip().lower()
+        if key not in counts:
+            counts[key] = 0
+            order.append(key)
+        counts[key] += 1
+
+    pieces: list[str] = []
+    for key in order:
+        n = counts[key]
+        noun = _singularize_gender(key) if n == 1 else _pluralize_gender(key)
+        pieces.append(f"{_number_word(n)} {noun}")
+
+    return _join_with_and(pieces)
+
+
+def _number_word(n: int) -> str:
+    """Return 'one', 'two', ... falling back to the digit for large n."""
+    return _NUM_WORDS.get(n, str(n))
+
+
+def _singularize_gender(gender: str) -> str:
+    """Map a gender token to its singular noun form."""
+    g = gender.strip().lower()
+    mapping = {
+        "male": "man",
+        "man": "man",
+        "female": "woman",
+        "woman": "woman",
+        "mtf": "MTF",
+        "ftm": "FTM",
+        "nonbinary": "nonbinary person",
+        "non-binary": "nonbinary person",
+        "unspecified": "person",
+    }
+    return mapping.get(g, g)
+
+
+def _pluralize_gender(gender: str) -> str:
+    """Map a gender token to its plural noun form."""
+    g = gender.strip().lower()
+    mapping = {
+        "male": "men",
+        "man": "men",
+        "female": "women",
+        "woman": "women",
+        "mtf": "MTFs",
+        "ftm": "FTMs",
+        "nonbinary": "nonbinary people",
+        "non-binary": "nonbinary people",
+        "unspecified": "people",
+    }
+    return mapping.get(g, g + "s")
+
+
+def _capitalize_first(s: str) -> str:
+    return s[:1].upper() + s[1:] if s else s
+
+
+def _join_with_and(items: list[str]) -> str:
+    """Join items with commas + 'and': ['a','b','c'] -> 'a, b, and c'."""
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def _format_group(genders: list[str]) -> str:
+    """
+    Given a list of gender tokens (e.g. ['female','female','male']),
+    return a phrase like 'two women and one man'.
+    Returns '' for an empty list.
+    """
+    if not genders:
+        return ""
+
+    # Preserve first-seen order for stable, natural phrasing.
+    counts: dict[str, int] = {}
+    order: list[str] = []
+    for g in genders:
+        key = g.strip().lower()
+        if key not in counts:
+            counts[key] = 0
+            order.append(key)
+        counts[key] += 1
+
+    pieces: list[str] = []
+    for key in order:
+        n = counts[key]
+        noun = _singularize_gender(key) if n == 1 else _pluralize_gender(key)
+        pieces.append(f"{_number_word(n)} {noun}")
+
+    return _join_with_and(pieces)
+
+
+def load_jsonl(path: str, sfw_switch: str) -> list[dict]:
     with open(path, "r", encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
-    
+        json_list = [json.loads(line) for line in f if line.strip()]
+        if sfw_switch != "any":
+            output_list = []
+            for group in json_list:
+                if group["group"] == sfw_switch:
+                    output_list.append(group)
+            return output_list
+        else:
+            return json_list
+
+
 def roll_character_counts(pose: dict) -> tuple[int, int]:
     """
     Returns (num_receivers, num_givers).
@@ -110,6 +285,7 @@ def additional_details_enabled(pose: dict) -> bool:
         return False
     return random.random() < 0.5
 
+
 def gender_overlap(selected: list[Character], allowed_field: str) -> bool:
     """True if any selected character's gender is in the allowed gender list."""
     allowed = {g.strip().lower() for g in allowed_field.split(",") if g.strip()}
@@ -130,6 +306,8 @@ def select_additional(
     """
     Returns a dict describing the selected additional detail, or None if
     nothing applicable was found.
+
+    NOTE: Kept for reference but no longer called by process_pose.
     """
     # Filter candidates to those linked from allow_additional_details
     allowed_names = {
@@ -264,6 +442,37 @@ def select_additional(
 
     return None
 
+
+def pick_additional_for_prompt(
+    pose: dict, additional_list: list[dict]
+) -> Optional[dict]:
+    """
+    Picks an additional detail entry linked via allow_additional_details,
+    without rolling counts or genders. Returns a simple dict with
+    secondary_action + details, or None.
+    """
+    allowed_names = {
+        a.strip().lower()
+        for a in pose.get("allow_additional_details", "").split(",")
+        if a.strip()
+    }
+    if not allowed_names:
+        return None
+
+    candidates = [
+        a for a in additional_list
+        if a["secondary_action"].strip().lower() in allowed_names
+    ]
+    if not candidates:
+        return None
+
+    add = random.choice(candidates)
+    return {
+        "secondary_action": add["secondary_action"],
+        "details": add.get("additional_details", ""),
+    }
+
+
 def format_gender_list(chars: list[Character]) -> str:
     return ", ".join(c.gender for c in chars)
 
@@ -272,88 +481,147 @@ def format_character_refs(chars: list[Character]) -> str:
     return ", ".join(c.character_id for c in chars)
 
 
-def build_prompt(pose: dict, result: PoseResult) -> str:
-    base = (
-        f"create a prompt related to {pose['action']}, "
-        f"the receivers are {format_gender_list(result.receivers)}, "
-        f"The givers are {format_gender_list(result.givers)}"
+def _pluralize(role: str, gender_list: list[str]) -> str:
+    """Return e.g. 'the receiver is mtf' or 'the receivers are mtf, ftm'."""
+    joined = ", ".join(gender_list)
+    if len(gender_list) == 1:
+        return f"the {role} is {joined}"
+    return f"the {role}s are {joined}"
+
+
+def format_details_template(template: str, action: str,
+                            receivers: list[Character],
+                            givers: list[Character]) -> str:
+    """
+    Replace {receivers} and {givers} in a details template with a natural
+    phrase built from the rolled characters. Capitalizes the first letter
+    of the resulting sentence.
+    """
+    rec_phrase = _format_group([c.gender for c in receivers]) or "no one"
+    giv_phrase = _format_group([c.gender for c in givers]) or "no one"
+
+    text = (
+        template
+        .replace("{action}", action)
+        .replace("{receivers}", rec_phrase)
+        .replace("{givers}", giv_phrase)
     )
+    return _capitalize_first(text)
 
-    # Normalize dangling role lists
-    if not result.receivers:
-        base = base.replace(
-            "the receivers are , ", "there are no receivers, "
-        )
-    if not result.givers:
-        base = base.replace(
-            "The givers are ", "there are no givers. "
-        ).rstrip(", ")
 
-    # Append the pose's own details field, if present
+def build_prompt(pose: dict, result: PoseResult,
+                 receivers: list[Character] | None = None,
+                 givers: list[Character] | None = None) -> str:
+    
+    # Build character count summary by gender
+    count_parts = []
+    if receivers is not None and givers is not None:
+        all_chars = receivers + givers
+        
+        # Count each gender (case-insensitive, normalized)
+        counts = {}
+        gender_display = {"m": "m", "f": "f", "mtf": "MTF"}
+        
+        for c in all_chars:
+            key = c.gender.strip().lower()
+            counts[key] = counts.get(key, 0) + 1
+        
+        # Build list in consistent order: m, f, MTF
+        for gender_key in ["m", "f", "mtf"]:
+            if counts.get(gender_key, 0) > 0:
+                display = gender_display[gender_key]
+                count_parts.append(f"{counts[gender_key]} {display}")
+    
+    count_prefix = ""
+    if count_parts:
+        count_prefix = f"[{' | '.join(count_parts)}]\n"
+    
+    base = f"create a prompt related to {pose['action']}"
+
     pose_details = pose.get("details", "").strip()
     if pose_details:
+        if receivers is not None and givers is not None:
+            pose_details = format_details_template(
+                pose_details, pose["action"], receivers, givers
+            )
         base = f"{base}. {pose_details}"
 
-    # Append additional details clause, if any
     add = result.additional
     if not add:
-        return base
-
-    if add["applies_to"] == "all":
-        return (
-            f"{base} {add['secondary_action']} should be incorporated "
-            f"into the scene. {add['details']}"
-        )
-
-    rec_refs = format_character_refs(add["receivers"]) or "none"
-    giv_refs = format_character_refs(add["givers"]) or "none"
+        return count_prefix + base
 
     return (
-        f"{base} {add['secondary_action']} should be incorporated into the "
-        f"scene for character {rec_refs} as the receiver and character "
-        f"{giv_refs} as the giver. {add['details']}"
+        f"{count_prefix}{base} {add['secondary_action']} should be incorporated "
+        f"into the scene. {add['details']}"
     )
 
+
 def process_pose(pose: dict, additional_list: list[dict]) -> str:
+    # Roll counts + genders purely to populate the details template.
     receivers, givers = build_characters(pose)
 
     additional = None
     if additional_details_enabled(pose):
-        additional = select_additional(pose, receivers, givers, additional_list)
+        additional = pick_additional_for_prompt(pose, additional_list)
 
     result = PoseResult(
         action=pose["action"],
-        receivers=receivers,
-        givers=givers,
         additional=additional,
     )
-    return build_prompt(pose, result)
+    return build_prompt(pose, result, receivers, givers)
 
 
-def run_sequential(poses_path: str, additional_path: str):
+def run_sequential_set(poses_path: str, additional_path: str, swf_switch: str):
     """Iterate the entire action_poses file in order."""
-    poses = load_jsonl(poses_path)
-    additional = load_jsonl(additional_path)
+    poses = load_jsonl(poses_path, swf_switch)
+    additional = load_jsonl(additional_path, swf_switch)
+    pose_output = []
     for pose in poses:
-        print(process_pose(pose, additional))
-        print("-" * 80)
+        pose_output.append(process_pose(pose, additional))
+    return pose_output
 
 
-def run_random(poses_path: str, additional_path: str, total: int):
+def run_random_single(poses_path: str, additional_path: str, swf_switch: str):
     """Randomly sample from the pose list `total` times (with replacement)."""
-    poses = load_jsonl(poses_path)
-    additional = load_jsonl(additional_path)
+    poses = load_jsonl(poses_path, swf_switch)
+    additional = load_jsonl(additional_path, swf_switch)
+    
+    weights = [float(p.get("weight", 1)) for p in poses]
+    pose = random.choices(poses, weights=weights, k=1)[0]
+    
+    process_pose(pose, additional)
+    return process_pose(pose, additional)
+
+
+def run_random_set(poses_path: str, additional_path: str, swf_switch: str, total: int):
+    """Randomly sample from the pose list `total` times (with replacement)."""
+    poses = load_jsonl(poses_path, swf_switch)
+    additional = load_jsonl(additional_path, swf_switch)
+    pose_output = []
+    
+    weights = [float(p.get("weight", 1)) for p in poses]
+    
     for _ in range(total):
-        pose = random.choice(poses)
-        print(process_pose(pose, additional))
-        print("-" * 80)
+        pose = random.choices(poses, weights=weights, k=1)[0]
+        pose_output.append(process_pose(pose, additional))
+    return pose_output
 
 if __name__ == "__main__":
+    total_tests = 5
     POSES = "actions_poses.jsonl"
     ADDITIONAL = "actions_poses_additional.jsonl"
+    random_poses = []
+    for _ in range (total_tests):
+        is_sex = random.random() < 0.5
+    
+        if is_sex:
+            random_poses.append(run_random_single(POSES, ADDITIONAL, "nsfw"))
+        else:
+            random_poses.append(run_random_single(POSES, ADDITIONAL, "sfw"))
+
 
     # Mode 1: sequential
-    # run_sequential(POSES, ADDITIONAL)
+    sequential_poses = run_sequential_set(POSES, ADDITIONAL, "any")
 
-    # Mode 2: random, 25 poses
-    run_random(POSES, ADDITIONAL, total=5)
+    # Mode 2: random, 5 poses
+    # random_poses = run_random_set(POSES, ADDITIONAL, "any", total=5)

@@ -1,0 +1,3 @@
+{one|two|three} {woman|trans woman} {static_pose}
+{one|two|three} {woman|trans woman} {action}
+{one|two|three} {woman|trans woman} pole dancing
